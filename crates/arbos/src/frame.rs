@@ -201,84 +201,6 @@ where
         )))
     }
 
-    pub fn run_recursive(
-        inputs: FrameInput,
-        context: &mut CTX,
-        depth: usize,
-        memory: Rc<RefCell<SharedMemory>>,
-        precompiles: PRECOMPILE,
-        instructions: INSTRUCTION,
-    ) -> FrameResult {
-        let frame_or_result = match inputs {
-            FrameInput::Call(inputs) => Self::make_call_frame(
-                context,
-                depth + 1,
-                memory,
-                &inputs,
-                precompiles.clone(),
-                instructions.clone(),
-            ),
-            FrameInput::Create(inputs) => Self::make_create_frame(
-                context,
-                depth + 1,
-                memory,
-                &inputs,
-                precompiles.clone(),
-                instructions.clone(),
-            ),
-            FrameInput::EOFCreate(inputs) => Self::make_eofcreate_frame(
-                context,
-                depth + 1,
-                memory,
-                &inputs,
-                precompiles.clone(),
-                instructions.clone(),
-            ),
-        };
-
-        let frame = match frame_or_result {
-            Ok(FrameOrResultGen::Frame(frame)) => frame,
-            Ok(FrameOrResultGen::Result(result)) => return result,
-            Err(_) => todo!(),
-        };
-
-        match Self::run_inner(frame, context) {
-            Ok(result) => result,
-            Err(_) => todo!(),
-        }
-    }
-    fn run_inner(
-        frame: ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>,
-        context: &mut CTX,
-    ) -> Result<FrameResult, ERROR> {
-        let mut frame_stack: Vec<Self> = vec![frame];
-        loop {
-            let frame = frame_stack.last_mut().unwrap();
-            let call_or_result = frame.run(context)?;
-
-            let result = match call_or_result {
-                FrameOrResultGen::Frame(init) => match frame.init(context, init)? {
-                    FrameOrResultGen::Frame(new_frame) => {
-                        frame_stack.push(new_frame);
-                        continue;
-                    }
-                    // Dont pop the frame as new frame was not created.
-                    FrameOrResultGen::Result(result) => result,
-                },
-                FrameOrResultGen::Result(result) => {
-                    // Pop frame that returned result
-                    frame_stack.pop();
-                    result
-                }
-            };
-
-            let Some(frame) = frame_stack.last_mut() else {
-                return Ok(result);
-            };
-            frame.return_result(context, result)?;
-        }
-    }
-
     /// Make create frame.
     #[inline]
     pub fn make_create_frame(
@@ -525,6 +447,61 @@ where
                 precompile,
                 instructions,
             ),
+        }
+    }
+
+    pub fn run_recursive(
+        frame_init: FrameInput,
+        context: &mut CTX,
+        depth: usize,
+        memory: Rc<RefCell<SharedMemory>>,
+        precompile: PRECOMPILE,
+        instructions: INSTRUCTION,
+    ) -> FrameResult {
+        let frame_or_result =
+            Self::init_with_context(depth, frame_init, memory, precompile, instructions, context);
+
+        let frame = match frame_or_result {
+            Ok(FrameOrResultGen::Frame(frame)) => frame,
+            Ok(FrameOrResultGen::Result(result)) => return result,
+            Err(_) => todo!(),
+        };
+
+        match Self::run_inner(frame, context) {
+            Ok(result) => result,
+            Err(_) => todo!(),
+        }
+    }
+
+    fn run_inner(
+        frame: ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>,
+        context: &mut CTX,
+    ) -> Result<FrameResult, ERROR> {
+        let mut frame_stack: Vec<Self> = vec![frame];
+        loop {
+            let frame = frame_stack.last_mut().unwrap();
+            let call_or_result = frame.run(context)?;
+
+            let result = match call_or_result {
+                FrameOrResultGen::Frame(init) => match frame.init(context, init)? {
+                    FrameOrResultGen::Frame(new_frame) => {
+                        frame_stack.push(new_frame);
+                        continue;
+                    }
+                    // Dont pop the frame as new frame was not created.
+                    FrameOrResultGen::Result(result) => result,
+                },
+                FrameOrResultGen::Result(result) => {
+                    // Pop frame that returned result
+                    frame_stack.pop();
+                    result
+                }
+            };
+
+            let Some(frame) = frame_stack.last_mut() else {
+                return Ok(result);
+            };
+            frame.return_result(context, result)?;
         }
     }
 }
