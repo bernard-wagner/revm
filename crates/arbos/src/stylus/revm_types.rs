@@ -1,54 +1,53 @@
 use revm::primitives::{Address, Bytes, B256, U256};
 use std::vec::Vec;
 
+macro_rules! take_bytes {
+    ($data:expr, $len:expr) => {{
+        let bytes: Vec<u8> = $data.drain(0..$len).collect();
+        bytes
+    }};
+}
+
+macro_rules! take_int {
+    ($data:expr, $type:ty, $len:expr) => {{
+        let bytes = take_bytes!($data, $len);
+        <$type>::from_be_bytes(bytes.try_into().unwrap())
+    }};
+}
+
 pub(crate) fn take_address(data: &mut Vec<u8>) -> Address {
-    let address: Vec<u8> = data.drain(0..20).collect();
-    Address::from_slice(&address)
+    Address::from_slice(&take_bytes!(data, 20))
 }
 
 pub(crate) fn take_bytes32(data: &mut Vec<u8>) -> B256 {
-    let bytes: Vec<u8> = data.drain(0..32).collect();
-    B256::from_slice(bytes.as_slice())
+    B256::from_slice(&take_bytes!(data, 32))
 }
 
 pub(crate) fn take_u256(data: &mut Vec<u8>) -> U256 {
-    let u256: Vec<u8> = data.drain(0..32).collect();
-    U256::from_be_slice(&u256)
+    U256::from_be_slice(&take_bytes!(data, 32))
 }
 
 pub(crate) fn take_u64(data: &mut Vec<u8>) -> u64 {
-    let u64: Vec<u8> = data.drain(0..8).collect();
-    u64::from_be_bytes(u64.try_into().unwrap())
+    take_int!(data, u64, 8)
 }
 
 pub(crate) fn take_u32(data: &mut Vec<u8>) -> u32 {
-    let u32: Vec<u8> = data.drain(0..4).collect();
-    u32::from_be_bytes(u32.try_into().unwrap())
+    take_int!(data, u32, 4)
 }
 
 pub(crate) fn take_u16(data: &mut Vec<u8>) -> u16 {
-    let u16: Vec<u8> = data.drain(0..2).collect();
-    u16::from_be_bytes(u16.try_into().unwrap())
+    take_int!(data, u16, 2)
 }
 
-// pub(crate) fn take_u8(data: &mut Vec<u8>) -> u8 {
-//     data.drain(0..1).next().unwrap()
-// }
-
-// pub(crate) fn take_bool(data: &mut Vec<u8>) -> bool {
-//     data.drain(0..1).next().unwrap() == 1
-// }
-
 pub(crate) fn take_rest(data: &mut Vec<u8>) -> Bytes {
-    let data_copy = Bytes::from(data.clone());
+    let bytes = Bytes::from(data.clone());
     data.clear();
-    data_copy
+    bytes
 }
 
 #[cfg(test)]
 mod tests {
     use revm::primitives::address;
-
     use super::*;
 
     #[test]
@@ -94,18 +93,4 @@ mod tests {
         let u16 = take_u16(&mut data);
         assert_eq!(u16, 0);
     }
-
-    // #[test]
-    // fn test_take_u8() {
-    //     let mut data = vec![0u8; 1];
-    //     let u8 = take_u8(&mut data);
-    //     assert_eq!(u8, 0);
-    // }
-
-    // #[test]
-    // fn test_take_bool() {
-    //     let mut data = vec![0u8; 1];
-    //     let boolean = take_bool(&mut data);
-    //     assert_eq!(boolean, false);
-    // }
 }
