@@ -513,7 +513,7 @@ where
         // Run interpreter
         let next_action = self
             .interpreter
-            .run(self.instructions.table(), &mut *context);
+            .run(self.instructions.table(), context);
 
         let mut interpreter_result = match next_action {
             InterpreterAction::NewFrame(new_frame) => {

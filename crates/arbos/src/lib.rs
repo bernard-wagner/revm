@@ -13,6 +13,8 @@ use revm::{
 pub mod frame;
 pub mod interpreter;
 pub mod stylus;
+pub mod journal;
+pub mod db;
 
 pub type ArbOsExecution<
     CTX,

@@ -47,8 +47,8 @@ pub(crate) fn take_rest(data: &mut Vec<u8>) -> Bytes {
 
 #[cfg(test)]
 mod tests {
-    use revm::primitives::address;
     use super::*;
+    use revm::primitives::address;
 
     #[test]
     fn test_take_address() {

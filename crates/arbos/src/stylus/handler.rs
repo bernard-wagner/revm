@@ -37,7 +37,12 @@ impl<CTX: Host + Send + 'static> StylusHandler<CTX> {
         is_static: bool,
     ) -> Self {
         let unsafe_context: &'static mut CTX = unsafe { mem::transmute(context) };
-        Self { address, api: unsafe_context, new_frame_cb: cb, is_static }
+        Self {
+            address,
+            api: unsafe_context,
+            new_frame_cb: cb,
+            is_static,
+        }
     }
 
     fn wasm_account_touch(&self, is_cold: bool, with_code: bool) -> u64 {
@@ -73,7 +78,11 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
             EvmApiMethod::SetTrieSlots => {
                 let gas_left = revm_types::take_u64(&mut data);
                 if self.is_static {
-                    return (Status::WriteProtection.into(), VecReader::new(vec![]), Gas(gas_left));
+                    return (
+                        Status::WriteProtection.into(),
+                        VecReader::new(vec![]),
+                        Gas(gas_left),
+                    );
                 }
 
                 let mut total_cost = 0;
@@ -84,14 +93,26 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
                     if let Some(result) = self.api.sstore(self.address, key, value) {
                         total_cost += sstore_cost(spec, &result.data, result.is_cold);
                         if gas_left < total_cost {
-                            return (Status::OutOfGas.into(), VecReader::new(vec![]), Gas(gas_left));
+                            return (
+                                Status::OutOfGas.into(),
+                                VecReader::new(vec![]),
+                                Gas(gas_left),
+                            );
                         }
                     } else {
-                        return (Status::Failure.into(), VecReader::new(vec![]), Gas(gas_left));
+                        return (
+                            Status::Failure.into(),
+                            VecReader::new(vec![]),
+                            Gas(gas_left),
+                        );
                     }
                 }
 
-                (Status::Success.into(), VecReader::new(vec![]), Gas(gas_left - total_cost))
+                (
+                    Status::Success.into(),
+                    VecReader::new(vec![]),
+                    Gas(gas_left - total_cost),
+                )
             }
 
             EvmApiMethod::GetTransientBytes32 => {
@@ -102,7 +123,11 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
 
             EvmApiMethod::SetTransientBytes32 => {
                 if self.is_static {
-                    return (Status::WriteProtection.into(), VecReader::new(vec![]), Gas(0));
+                    return (
+                        Status::WriteProtection.into(),
+                        VecReader::new(vec![]),
+                        Gas(0),
+                    );
                 }
                 let key = revm_types::take_u256(&mut data);
                 let value = revm_types::take_u256(&mut data);
@@ -118,19 +143,28 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
                 let calldata = revm_types::take_rest(&mut data);
 
                 if self.is_static && !value.is_zero() {
-                    return (Status::WriteProtection.into(), VecReader::new(vec![]), Gas(gas_left));
+                    return (
+                        Status::WriteProtection.into(),
+                        VecReader::new(vec![]),
+                        Gas(gas_left),
+                    );
                 }
 
                 let Some(account_load) = self.api.load_account_delegated(address) else {
-                    return (Status::Failure.into(), VecReader::new(vec![]), Gas(gas_left));
+                    return (
+                        Status::Failure.into(),
+                        VecReader::new(vec![]),
+                        Gas(gas_left),
+                    );
                 };
 
                 let call_cost = gas::call_cost(spec, !value.is_zero(), account_load);
-                let gas_limit = if spec.is_enabled_in(revm::specification::hardfork::SpecId::TANGERINE) {
-                    min(gas_left - gas_left / 64, gas_limit)
-                } else {
-                    gas_limit
-                };
+                let gas_limit =
+                    if spec.is_enabled_in(revm::specification::hardfork::SpecId::TANGERINE) {
+                        min(gas_left - gas_left / 64, gas_limit)
+                    } else {
+                        gas_limit
+                    };
 
                 let res = (self.new_frame_cb)(
                     self.api,
@@ -153,7 +187,11 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
 
                 if let FrameResult::Call(result) = res {
                     gas.erase_cost(result.gas().remaining());
-                    (Status::Success.into(), VecReader::new(result.result.output.to_vec()), Gas(gas.spent()))
+                    (
+                        Status::Success.into(),
+                        VecReader::new(result.result.output.to_vec()),
+                        Gas(gas.spent()),
+                    )
                 } else {
                     (vec![], VecReader::new(vec![]), Gas(gas.spent()))
                 }
@@ -167,11 +205,21 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
                 let init_code = revm_types::take_rest(&mut data);
 
                 if self.is_static {
-                    return (Status::WriteProtection.into(), VecReader::new(vec![]), Gas(0));
+                    return (
+                        Status::WriteProtection.into(),
+                        VecReader::new(vec![]),
+                        Gas(0),
+                    );
                 }
 
-                if is_create_2 && !spec.is_enabled_in(revm::specification::hardfork::SpecId::PETERSBURG) {
-                    return (Status::Failure.into(), VecReader::new(vec![]), Gas(gas_remaining));
+                if is_create_2
+                    && !spec.is_enabled_in(revm::specification::hardfork::SpecId::PETERSBURG)
+                {
+                    return (
+                        Status::Failure.into(),
+                        VecReader::new(vec![]),
+                        Gas(gas_remaining),
+                    );
                 }
 
                 let mut gas_cost = 0;
@@ -181,7 +229,11 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
                     if spec.is_enabled_in(revm::specification::hardfork::SpecId::SHANGHAI) {
                         let max_initcode_size = self.api.cfg().max_code_size().saturating_mul(2);
                         if len > max_initcode_size {
-                            return (Status::Failure.into(), VecReader::new(vec![]), Gas(gas_remaining));
+                            return (
+                                Status::Failure.into(),
+                                VecReader::new(vec![]),
+                                Gas(gas_remaining),
+                            );
                         }
                         gas_cost = gas::initcode_cost(len);
                     }
@@ -189,19 +241,31 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
                 }
 
                 let scheme = if is_create_2 {
-                    if let Some(check_cost) = gas::create2_cost(len).and_then(|cost| gas_cost.checked_add(cost)) {
+                    if let Some(check_cost) =
+                        gas::create2_cost(len).and_then(|cost| gas_cost.checked_add(cost))
+                    {
                         gas_cost = check_cost;
                     } else {
-                        return (Status::Failure.into(), VecReader::new(vec![]), Gas(gas_remaining));
+                        return (
+                            Status::Failure.into(),
+                            VecReader::new(vec![]),
+                            Gas(gas_remaining),
+                        );
                     };
-                    CreateScheme::Create2 { salt: salt.unwrap() }
+                    CreateScheme::Create2 {
+                        salt: salt.unwrap(),
+                    }
                 } else {
                     gas_cost += gas::CREATE;
                     CreateScheme::Create
                 };
 
                 if gas_remaining < gas_cost {
-                    return (Status::OutOfGas.into(), VecReader::new(vec![]), Gas(gas_remaining));
+                    return (
+                        Status::OutOfGas.into(),
+                        VecReader::new(vec![]),
+                        Gas(gas_remaining),
+                    );
                 }
 
                 let mut gas_limit = gas_remaining - gas_cost;
@@ -222,7 +286,11 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
 
                 gas_cost += result.gas().spent();
                 if gas_remaining < gas_cost {
-                    return (Status::OutOfGas.into(), VecReader::new(vec![]), Gas(gas_remaining));
+                    return (
+                        Status::OutOfGas.into(),
+                        VecReader::new(vec![]),
+                        Gas(gas_remaining),
+                    );
                 }
 
                 let output = result.output();
@@ -231,16 +299,31 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
                         let mut address_bytes = vec![1];
                         match create_outcome.result.result {
                             interpreter::InstructionResult::Return => {
-                                address_bytes.extend(create_outcome.address.unwrap_or_default().to_vec());
+                                address_bytes
+                                    .extend(create_outcome.address.unwrap_or_default().to_vec());
                             }
                             interpreter::InstructionResult::Revert => {
                                 address_bytes.extend(Address::ZERO.to_vec());
                             }
-                            _ => return (Status::Failure.into(), VecReader::new(vec![]), Gas(gas_remaining)),
+                            _ => {
+                                return (
+                                    Status::Failure.into(),
+                                    VecReader::new(vec![]),
+                                    Gas(gas_remaining),
+                                )
+                            }
                         }
-                        (address_bytes, VecReader::new(output.data().to_vec()), Gas(gas_cost))
+                        (
+                            address_bytes,
+                            VecReader::new(output.data().to_vec()),
+                            Gas(gas_cost),
+                        )
                     }
-                    _ => (Status::Failure.into(), VecReader::new(vec![]), Gas(gas_remaining)),
+                    _ => (
+                        Status::Failure.into(),
+                        VecReader::new(vec![]),
+                        Gas(gas_remaining),
+                    ),
                 }
             }
 
@@ -288,7 +371,7 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
 
 enum Status {
     Success,
-    Failure, 
+    Failure,
     OutOfGas,
     WriteProtection,
 }
@@ -297,7 +380,7 @@ impl From<Status> for Vec<u8> {
     fn from(status: Status) -> Vec<u8> {
         match status {
             Status::Success => vec![0],
-            Status::Failure => vec![1], 
+            Status::Failure => vec![1],
             Status::OutOfGas => vec![2],
             Status::WriteProtection => vec![3],
         }

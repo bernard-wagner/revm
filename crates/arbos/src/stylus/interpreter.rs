@@ -34,7 +34,13 @@ pub struct StylusInterpreter<CTX> {
 
 impl<CTX> StylusInterpreter<CTX> {
     pub fn new(bytecode: Bytes, inputs: InputsImpl, is_static: bool, gas_limit: u64) -> Self {
-        Self { bytecode, inputs, is_static, gas_limit, _phantom: core::marker::PhantomData }
+        Self {
+            bytecode,
+            inputs,
+            is_static,
+            gas_limit,
+            _phantom: core::marker::PhantomData,
+        }
     }
 }
 
@@ -53,10 +59,15 @@ impl<CTX: Host + BlockGetter + CfgGetter + Send + 'static> StylusInterpreter<CTX
             block_number: U64::wrapping_from(block.number()).to::<u64>(),
             block_timestamp: U64::wrapping_from(block.timestamp()).to::<u64>(),
             contract_address: Bytes20::try_from(self.inputs.target_address.as_slice()).unwrap(),
-            module_hash: Bytes32::try_from(keccak256(self.inputs.target_address.as_slice()).as_slice()).unwrap(),
+            module_hash: Bytes32::try_from(
+                keccak256(self.inputs.target_address.as_slice()).as_slice(),
+            )
+            .unwrap(), // TODO: implement correct module hash logic
             msg_sender: Bytes20::try_from(self.inputs.caller_address.as_slice()).unwrap(),
             msg_value: Bytes32::try_from(self.inputs.call_value.to_be_bytes_vec()).unwrap(),
-            tx_gas_price: Bytes32::from(U256::from(tx.effective_gas_price(base_fee as u128)).to_be_bytes()),
+            tx_gas_price: Bytes32::from(
+                U256::from(tx.effective_gas_price(base_fee as u128)).to_be_bytes(),
+            ),
             tx_origin: Bytes20::try_from(self.inputs.caller_address.as_slice()).unwrap(),
             reentrant: 0,
             return_data_len: 0,
@@ -81,7 +92,8 @@ impl<CTX: Host + BlockGetter + CfgGetter + Send + 'static> StylusInterpreter<CTX
             CompileConfig::default(),
             stylus_config,
             wasmer_types::compilation::target::Target::default(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let ink_limit = stylus_config.pricing.gas_to_ink(ArbOsGas(self.gas_limit));
         let mut gas = RevmGas::new(self.gas_limit);
@@ -92,7 +104,10 @@ impl<CTX: Host + BlockGetter + CfgGetter + Send + 'static> StylusInterpreter<CTX
             Ok(outcome) => outcome,
         };
 
-        let mut gas_left = stylus_config.pricing.ink_to_gas(instance.ink_left().into()).0;
+        let mut gas_left = stylus_config
+            .pricing
+            .ink_to_gas(instance.ink_left().into())
+            .0;
         let (kind, data) = outcome.into_data();
 
         let result = match kind {
