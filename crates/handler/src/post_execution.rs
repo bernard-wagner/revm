@@ -9,7 +9,7 @@ use interpreter::SuccessOrHalt;
 use primitives::{Log, U256};
 use specification::hardfork::SpecId;
 use state::EvmState;
-use std::{boxed::Box, vec::Vec};
+use std::{boxed::Box, sync::{Arc, Mutex}, vec::Vec};
 
 use super::frame_data::FrameResult;
 
@@ -179,7 +179,7 @@ where
         Ok(ResultAndState { result, state })
     }
 
-    fn clear(&self, context: &mut Self::Context) {
+    fn clear(&self, context: &mut CTX) {
         // Clear error and journaled state.
         // TODO : Check effects of removal of take_error
         // let _ = context.evm.take_error();

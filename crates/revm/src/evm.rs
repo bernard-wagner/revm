@@ -22,11 +22,11 @@ use interpreter::Host;
 use precompile::PrecompileErrors;
 use primitives::Log;
 use state::EvmState;
-use std::vec::Vec;
+use std::{sync::{Arc, Mutex}, vec::Vec};
 
 /// Main EVM structure
 pub struct Evm<ERROR, CTX = Context, HANDLER = EthHandler<CTX, ERROR>> {
-    pub context: CTX,
+    pub context: Arc<Mutex<CTX>>,
     pub handler: HANDLER,
     pub _error: core::marker::PhantomData<fn() -> ERROR>,
 }
@@ -34,7 +34,7 @@ pub struct Evm<ERROR, CTX = Context, HANDLER = EthHandler<CTX, ERROR>> {
 impl<ERROR, CTX, HANDLER> Evm<ERROR, CTX, HANDLER> {
     pub fn new(context: CTX, handler: HANDLER) -> Self {
         Self {
-            context,
+            context: Arc::new(Mutex::new(context)),
             handler,
             _error: core::marker::PhantomData,
         }
@@ -83,7 +83,7 @@ where
     fn exec_commit(&mut self) -> Self::CommitOutput {
         let res = self.transact();
         res.map(|r| {
-            self.context.db().commit(r.state);
+            self.context.try_lock().unwrap().db().commit(r.state);
             r.result
         })
     }
@@ -126,11 +126,11 @@ where
     type Output = Result<<POSTEXEC as PostExecutionHandler>::Output, ERROR>;
 
     fn set_block(&mut self, block: Self::Block) {
-        self.context.set_block(block);
+        self.context.try_lock().unwrap().set_block(block);
     }
 
     fn set_tx(&mut self, tx: Self::Transaction) {
-        self.context.set_tx(tx);
+        self.context.try_lock().unwrap().set_tx(tx);
     }
 
     fn exec(&mut self) -> Self::Output {
@@ -189,7 +189,7 @@ where
 
     /// Calls clear handle of post execution to clear the state for next execution.
     fn clear(&mut self) {
-        self.handler.post_execution().clear(&mut self.context);
+        self.handler.post_execution().clear(&mut self.context.try_lock().unwrap());
     }
 
     /// Transact pre-verified transaction
@@ -199,10 +199,12 @@ where
     pub fn transact_preverified(
         &mut self,
     ) -> Result<<POSTEXEC as PostExecutionHandler>::Output, ERROR> {
+        let context = self.context.clone();
+        let mut context = context.try_lock().unwrap();
         let initial_gas_spend = self
             .handler
             .validation()
-            .validate_initial_tx_gas(&self.context)
+            .validate_initial_tx_gas(&mut context)
             .inspect_err(|_| {
                 self.clear();
             })?;
@@ -210,7 +212,7 @@ where
         let output = self
             .handler
             .post_execution()
-            .end(&mut self.context, init_and_floor_gas);
+            .end(&mut self.context.try_lock().unwrap(), init_and_floor_gas);
         self.clear();
         output
     }
@@ -218,14 +220,14 @@ where
     /// Pre verify transaction inner.
     #[inline]
     fn preverify_transaction_inner(&mut self) -> Result<InitialAndFloorGas, ERROR> {
-        self.handler.validation().validate_env(&self.context)?;
+        self.handler.validation().validate_env(&mut self.context.try_lock().unwrap())?;
         let initial_gas_spend = self
             .handler
             .validation()
-            .validate_initial_tx_gas(&self.context)?;
+            .validate_initial_tx_gas(&mut self.context.try_lock().unwrap())?;
         self.handler
             .validation()
-            .validate_tx_against_state(&mut self.context)?;
+            .validate_tx_against_state(&mut self.context.try_lock().unwrap())?;
         Ok(initial_gas_spend)
     }
 
@@ -242,7 +244,7 @@ where
         let output = self
             .handler
             .post_execution()
-            .end(&mut self.context, init_and_floor_gas);
+            .end(&mut self.context.try_lock().unwrap(), init_and_floor_gas);
         self.clear();
         output
     }
@@ -252,19 +254,19 @@ where
         &mut self,
         init_and_floor_gas: InitialAndFloorGas,
     ) -> Result<<POSTEXEC as PostExecutionHandler>::Output, ERROR> {
-        let context = &mut self.context;
+       
         let pre_exec = self.handler.pre_execution();
 
         // Load access list and beneficiary if needed.
-        pre_exec.load_accounts(context)?;
+        pre_exec.load_accounts(&mut self.context.try_lock().unwrap())?;
 
         // Deduce caller balance with its limit.
-        pre_exec.deduct_caller(context)?;
+        pre_exec.deduct_caller(&mut self.context.try_lock().unwrap())?;
 
-        let gas_limit = context.tx().gas_limit() - init_and_floor_gas.initial_gas;
+           let gas_limit = self.context.try_lock().unwrap().tx().gas_limit() - init_and_floor_gas.initial_gas;
 
         // Apply EIP-7702 auth list.
-        let eip7702_gas_refund = pre_exec.apply_eip7702_auth_list(context)? as i64;
+        let eip7702_gas_refund = pre_exec.apply_eip7702_auth_list(&mut self.context.try_lock().unwrap())? as i64;
 
         // Start execution
 
@@ -272,25 +274,25 @@ where
         let exec = self.handler.execution();
 
         // Create first frame action
-        let first_frame = exec.init_first_frame(context, gas_limit)?;
+        let first_frame = exec.init_first_frame(self.context.clone(), gas_limit)?;
         let frame_result = match first_frame {
-            FrameOrResultGen::Frame(frame) => exec.run(context, frame)?,
+            FrameOrResultGen::Frame(frame) => exec.run(self.context.clone(), frame)?,
             FrameOrResultGen::Result(result) => result,
         };
 
-        let mut exec_result = exec.last_frame_result(context, frame_result)?;
+        let mut exec_result = exec.last_frame_result(&mut self.context.try_lock().unwrap(), frame_result)?;
 
         let post_exec = self.handler.post_execution();
         // Calculate final refund and add EIP-7702 refund to gas.
-        post_exec.refund(context, &mut exec_result, eip7702_gas_refund);
+        post_exec.refund(&mut self.context.try_lock().unwrap(), &mut exec_result, eip7702_gas_refund);
         // Check gas floor
-        post_exec.eip7623_check_gas_floor(context, &mut exec_result, init_and_floor_gas);
+        post_exec.eip7623_check_gas_floor(&mut self.context.try_lock().unwrap(), &mut exec_result, init_and_floor_gas);
         // Reimburse the caller
-        post_exec.reimburse_caller(context, &mut exec_result)?;
+        post_exec.reimburse_caller(&mut self.context.try_lock().unwrap(), &mut exec_result)?;
         // Reward beneficiary
-        post_exec.reward_beneficiary(context, &mut exec_result)?;
+        post_exec.reward_beneficiary(&mut self.context.try_lock().unwrap(), &mut exec_result)?;
         // Returns output of transaction.
-        post_exec.output(context, exec_result)
+        post_exec.output(&mut self.context.try_lock().unwrap(), exec_result)
     }
 }
 

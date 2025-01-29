@@ -1,5 +1,6 @@
 use crate::util::FrameOrFrameResult;
 pub use crate::{Frame, FrameOrResultGen};
+use std::sync::{Arc, Mutex};
 pub use std::{vec, vec::Vec};
 
 pub trait ExecutionHandler {
@@ -11,7 +12,7 @@ pub trait ExecutionHandler {
     /// Execute call.
     fn init_first_frame(
         &mut self,
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
         gas_limit: u64,
     ) -> Result<FrameOrFrameResult<Self::Frame>, Self::Error>;
 
@@ -24,16 +25,16 @@ pub trait ExecutionHandler {
 
     fn run(
         &self,
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
         frame: Self::Frame,
     ) -> Result<Self::ExecResult, Self::Error> {
         let mut frame_stack: Vec<<Self as ExecutionHandler>::Frame> = vec![frame];
         loop {
             let frame = frame_stack.last_mut().unwrap();
-            let call_or_result = frame.run(context)?;
+            let call_or_result = frame.run(context.clone())?;
 
             let mut result = match call_or_result {
-                FrameOrResultGen::Frame(init) => match frame.init(context, init)? {
+                FrameOrResultGen::Frame(init) => match frame.init(&mut context.try_lock().unwrap(), init)? {
                     FrameOrResultGen::Frame(new_frame) => {
                         frame_stack.push(new_frame);
                         continue;
@@ -49,10 +50,10 @@ pub trait ExecutionHandler {
             };
 
             let Some(frame) = frame_stack.last_mut() else {
-                Self::Frame::final_return(context, &mut result)?;
-                return self.last_frame_result(context, result);
+                Self::Frame::final_return(&mut context.try_lock().unwrap(), &mut result)?;
+                return self.last_frame_result(&mut context.try_lock().unwrap(), result);
             };
-            frame.return_result(context, result)?;
+            frame.return_result(&mut context.try_lock().unwrap(), result)?;
         }
     }
 }

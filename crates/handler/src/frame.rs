@@ -23,7 +23,7 @@ use specification::{
     hardfork::SpecId::{self, HOMESTEAD, LONDON, OSAKA, SPURIOUS_DRAGON},
 };
 use state::Bytecode;
-use std::borrow::ToOwned;
+use std::{borrow::ToOwned, sync::Mutex};
 use std::{rc::Rc, sync::Arc};
 
 pub struct EthFrame<CTX, ERROR, IW: InterpreterTypes, PRECOMPILE, INSTRUCTIONS> {
@@ -73,7 +73,7 @@ where
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION>
     EthFrame<CTX, ERROR, EthInterpreter<()>, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send + 'static,
+    CTX: EthFrameContext + Send,
     ERROR: EthFrameError<CTX>,
     PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
 {
@@ -105,13 +105,13 @@ where
             return return_result(InstructionResult::CallTooDeep);
         }
 
-        // Make account warm and loaded
-        let _ = context
-            .journal()
-            .load_account_delegated(inputs.bytecode_address)?;
+            // Make account warm and loaded
+            let _ = context
+                .journal()
+                .load_account_delegated(inputs.bytecode_address)?;
 
-        // Create subroutine checkpoint
-        let checkpoint = context.journal().checkpoint();
+            // Create subroutine checkpoint
+            let checkpoint = context.journal().checkpoint();
 
         // Touch address. For "EIP-158 State Clear", this will erase empty accounts.
         if let CallValue::Transfer(value) = inputs.value {
@@ -454,7 +454,7 @@ where
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION> Frame
     for EthFrame<CTX, ERROR, EthInterpreter<()>, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send + 'static,
+    CTX: EthFrameContext + Send,
     ERROR: EthFrameError<CTX>,
     PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
     INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX>,
@@ -465,20 +465,22 @@ where
     type FrameResult = FrameResult;
 
     fn init_first(
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
+
         let memory = Rc::new(RefCell::new(SharedMemory::new()));
-        let precompiles = PRECOMPILE::new(context);
-        let instructions = INSTRUCTION::new(context);
+        let precompiles = PRECOMPILE::new(context.clone());
+        let instructions = INSTRUCTION::new(context.clone());
+
 
         // Load precompiles addresses as warm.
         for address in precompiles.warm_addresses() {
-            context.journal().warm_account(address);
+            context.try_lock().unwrap().journal().warm_account(address);
         }
 
         memory.borrow_mut().new_context();
-        Self::init_with_context(0, frame_input, memory, precompiles, instructions, context)
+        Self::init_with_context(0, frame_input, memory, precompiles, instructions, &mut context.try_lock().unwrap())
     }
 
     fn final_return(
@@ -506,14 +508,18 @@ where
 
     fn run(
         &mut self,
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        let spec = context.cfg().spec().into();
+        
+        let spec = {
+            let context = context.try_lock().unwrap();
+            context.cfg().spec().into()
+        };
 
         // Run interpreter
         let next_action = self
             .interpreter
-            .run(self.instructions.table(), context);
+            .run(self.instructions.table(), &mut context.try_lock().unwrap());
 
         let mut interpreter_result = match next_action {
             InterpreterAction::NewFrame(new_frame) => {
@@ -522,6 +528,8 @@ where
             InterpreterAction::Return { result } => result,
             InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
         };
+
+        let mut context = context.try_lock().unwrap();
 
         // Handle return from frame
         let result = match &self.data {

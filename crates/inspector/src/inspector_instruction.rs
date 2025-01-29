@@ -11,7 +11,7 @@ use revm::{
     },
     JournalEntry,
 };
-use std::rc::Rc;
+use std::{rc::Rc, sync::{Arc, Mutex}};
 
 use crate::{
     journal::{JournalExt, JournalExtGetter},
@@ -41,7 +41,7 @@ where
     type WIRE = WIRE;
     type Host = HOST;
 
-    fn new(_context: &mut Self::Host) -> Self {
+    fn new(_context: Arc<Mutex<HOST>>) -> Self {
         let main_table = table::make_instruction_table::<WIRE, HOST>();
         let mut table: [MaybeUninit<InspectorInstruction<WIRE, HOST>>; 256] =
             unsafe { MaybeUninit::uninit().assume_init() };

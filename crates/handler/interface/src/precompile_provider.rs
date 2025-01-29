@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use primitives::{Address, Bytes};
 
 pub trait PrecompileProvider: Clone {
@@ -6,7 +8,7 @@ pub trait PrecompileProvider: Clone {
     type Error;
 
     /// Create a new precompile.
-    fn new(context: &mut Self::Context) -> Self;
+    fn new(context: Arc<Mutex<Self::Context>>) -> Self;
 
     /// Run the precompile.
     fn run(

@@ -1,7 +1,7 @@
 //! Optimism-specific constants, types, and helpers.
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
-use std::convert::Infallible;
+use std::{convert::Infallible, sync::{Arc, Mutex}};
 
 use anyhow::{anyhow, bail};
 use database::CacheDB;
@@ -51,10 +51,12 @@ async fn main() -> anyhow::Result<()> {
     let solidity_address = address!("Bd770416a3345F91E4B34576cb804a576fa48EB2");
     let param = 1337;
 
+    let db = CacheDB::<EmptyDB>::default();
+
     let validation: EthValidation<Ctx, Error<Db>> = EthValidation::new();
 
     let mut evm = ArbOsEvm::new(
-        Context::builder().with_db(CacheDB::<EmptyDB>::default()),
+        Context::builder().with_db(db),
         ArbOsHandler::new(
             validation,
             EthPreExecution::new(),
@@ -63,12 +65,13 @@ async fn main() -> anyhow::Result<()> {
         ),
     );
 
+
     //println!("name: {:?}", evm.handler.execution.name());
     {
         let bytecode =
             Bytes::from([STYLUS_MAGIC_BYTES.clone(), Bytes::from(RUNTIME_BYTECODE)].concat());
 
-        evm.context.db().insert_account_info(
+        evm.context.try_lock().unwrap().db().insert_account_info(
             stylus_address,
             revm::state::AccountInfo {
                 balance: U256::from(0),
@@ -81,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
 
     {
         let bytecode = Bytes::from(SOLIDITY_BYTECODE);
-        evm.context.db().insert_account_info(
+        evm.context.try_lock().unwrap().db().insert_account_info(
             solidity_address,
             revm::state::AccountInfo {
                 balance: U256::from(0),
@@ -119,7 +122,7 @@ async fn main() -> anyhow::Result<()> {
     //     tx.kind = TxKind::Call(stylus_address);
     // });
 
-    evm.context.modify_tx(|tx| {
+    evm.context.try_lock().unwrap().modify_tx(|tx| {
         tx.data = forwardToCall::new((
             solidity_address,
             forwardToCall::new((

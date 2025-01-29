@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{
     inspector_context::InspectorContext,
     inspector_instruction::InspectorInstructionProvider,
@@ -253,8 +255,7 @@ where
         + JournalExtGetter
         + Host
         + InspectorCtx<IT = EthInterpreter>
-        + Send
-        + 'static,
+        + Send,
     ERROR: From<JournalDBError<CTX>> + From<PrecompileErrors>,
     PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
 {
@@ -264,21 +265,21 @@ where
     type FrameResult = FrameResult;
 
     fn init_first(
-        context: &mut CTX,
+        context: Arc<Mutex<Self::Context>>,
         mut frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        if let Some(output) = context.frame_start(&mut frame_input) {
+        if let Some(output) =  context.try_lock().unwrap().frame_start(&mut frame_input) {
             return Ok(FrameOrResultGen::Result(output));
         }
-        let mut ret = EthFrame::init_first(context, frame_input)
+        let mut ret = EthFrame::init_first(context.clone(), frame_input)
             .map(|frame| frame.map_frame(|eth_frame| Self { eth_frame }));
 
         match &mut ret {
             Ok(FrameOrResultGen::Result(res)) => {
-                context.frame_end(res);
+                context.try_lock().unwrap().frame_end(res);
             }
             Ok(FrameOrResultGen::Frame(frame)) => {
-                context.initialize_interp(&mut frame.eth_frame.interpreter);
+                context.try_lock().unwrap().initialize_interp(&mut frame.eth_frame.interpreter);
             }
             _ => (),
         }
@@ -298,6 +299,7 @@ where
         context: &mut CTX,
         mut frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
+  
         if let Some(output) = context.frame_start(&mut frame_input) {
             return Ok(FrameOrResultGen::Result(output));
         }
@@ -314,7 +316,7 @@ where
 
     fn run(
         &mut self,
-        context: &mut CTX,
+        context: Arc<Mutex<CTX>>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
         self.eth_frame.run(context)
     }

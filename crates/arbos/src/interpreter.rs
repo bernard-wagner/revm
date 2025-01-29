@@ -1,3 +1,4 @@
+use std::sync::{Arc, Mutex};
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 use revm::context_interface::{BlockGetter, CfgGetter};
@@ -84,13 +85,14 @@ impl<CTX, EXT: Default, MG: MemoryGetter> ArbInterpreter<CTX, EXT, MG> {
 
 impl<CTX, EXT: Default, MG: MemoryGetter> ArbInterpreter<CTX, EXT, MG>
 where
-    CTX: Host + BlockGetter + CfgGetter + Send + 'static,
+    CTX: Host + BlockGetter + CfgGetter + Send,
+    for<'a> CTX: 'a,
 {
     /// Executes the interpreter until it returns or stops.
     pub fn run<FN>(
         &mut self,
         instruction_table: &[FN; 256],
-        host: &mut CTX,
+        host: Arc<Mutex<CTX>>,
         cb: FrameCreateFunc<CTX>,
     ) -> InterpreterAction
     where
@@ -103,12 +105,13 @@ where
 
 impl<CTX, EXT: Default, MG: MemoryGetter> InternalInterpreter<CTX, EXT, MG>
 where
-    CTX: Host + BlockGetter + CfgGetter + Send + 'static,
+    CTX: Host + BlockGetter + CfgGetter + Send,
+    for<'a> CTX: 'a,
 {
     fn run<FN>(
         &mut self,
         instruction_table: &[FN; 256],
-        host: &mut CTX,
+        host: Arc<Mutex<CTX>>,
         cb: FrameCreateFunc<CTX>,
     ) -> InterpreterAction
     where
@@ -117,7 +120,7 @@ where
     {
         match self {
             Self::Arb(interpreter) => interpreter.run(host, cb),
-            Self::Eth(interpreter) => interpreter.run(instruction_table, host),
+            Self::Eth(interpreter) => interpreter.run(instruction_table, &mut host.lock().unwrap()),
         }
     }
 }

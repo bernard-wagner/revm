@@ -1,4 +1,5 @@
 use core::{cell::RefCell, cmp::min};
+use std::sync::Mutex;
 use revm::bytecode::{Eof, EOF_MAGIC_BYTES};
 use revm::context_interface::{
     journaled_state::{Journal, JournalCheckpoint},
@@ -36,9 +37,9 @@ pub struct ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTIONS> {
     /// Interpreter.
     pub interpreter: ArbInterpreter<CTX>,
     /// Precompiles provider.
-    pub precompiles: PRECOMPILE,
+    pub precompiles: Arc<Mutex<PRECOMPILE>>,
     /// Instruction provider.
-    pub instructions: INSTRUCTIONS,
+    pub instructions: Arc<Mutex<INSTRUCTIONS>>,
     // This is worth making as a generic type FrameSharedContext.
     pub memory: Rc<RefCell<SharedMemory>>,
 }
@@ -52,8 +53,8 @@ where
         depth: usize,
         interpreter: ArbInterpreter<CTX>,
         checkpoint: JournalCheckpoint,
-        precompiles: PRECOMP,
-        instructions: INST,
+        precompiles: Arc<Mutex<PRECOMP>>,
+        instructions: Arc<Mutex<INST>>,
         memory: Rc<RefCell<SharedMemory>>,
     ) -> Self {
         Self {
@@ -71,11 +72,14 @@ where
 
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION> ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send + 'static,
+    CTX: EthFrameContext + Send,
+    for<'a> CTX: 'a,
+    for<'a> INSTRUCTION: 'a,
+    for<'a> PRECOMPILE: 'a,
     ERROR: EthFrameError<CTX>,
     PRECOMPILE:
-        PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult> + 'static,
-    INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX> + 'static,
+        PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
+    INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX>,
 {
     /// Make call frame
     #[inline]
@@ -84,8 +88,8 @@ where
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
         inputs: &CallInputs,
-        mut precompile: PRECOMPILE,
-        instructions: INSTRUCTION,
+        precompile: Arc<Mutex<PRECOMPILE>>,
+        instructions: Arc<Mutex<INSTRUCTION>>,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         let gas = Gas::new(inputs.gas_limit);
 
@@ -128,7 +132,7 @@ where
         }
         let is_ext_delegate_call = inputs.scheme.is_ext_delegate_call();
         if !is_ext_delegate_call {
-            if let Some(result) = precompile.run(
+            if let Some(result) = precompile.lock().unwrap().run(
                 context,
                 &inputs.bytecode_address,
                 &inputs.input,
@@ -208,8 +212,8 @@ where
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
         inputs: &CreateInputs,
-        precompile: PRECOMPILE,
-        instructions: INSTRUCTION,
+        precompile: Arc<Mutex<PRECOMPILE>>,
+        instructions: Arc<Mutex<INSTRUCTION>>,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         let spec = context.cfg().spec().into();
         let return_error = |e| {
@@ -314,8 +318,8 @@ where
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
         inputs: &EOFCreateInputs,
-        precompile: PRECOMPILE,
-        instructions: INSTRUCTION,
+        precompile: Arc<Mutex<PRECOMPILE>>,
+        instructions: Arc<Mutex<INSTRUCTION>>,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         let spec = context.cfg().spec().into();
         let return_error = |e| {
@@ -428,8 +432,8 @@ where
         depth: usize,
         frame_init: FrameInput,
         memory: Rc<RefCell<SharedMemory>>,
-        precompile: PRECOMPILE,
-        instructions: INSTRUCTION,
+        precompile: Arc<Mutex<PRECOMPILE>>,
+        instructions: Arc<Mutex<INSTRUCTION>>,
         context: &mut CTX,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         match frame_init {
@@ -452,14 +456,14 @@ where
 
     pub fn run_recursive(
         frame_init: FrameInput,
-        context: &mut CTX,
+        context: Arc<Mutex<CTX>>,
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
-        precompile: PRECOMPILE,
-        instructions: INSTRUCTION,
+        precompile: Arc<Mutex<PRECOMPILE>>,
+        instructions: Arc<Mutex<INSTRUCTION>>,
     ) -> FrameResult {
         let frame_or_result =
-            Self::init_with_context(depth, frame_init, memory, precompile, instructions, context);
+            Self::init_with_context(depth, frame_init, memory, precompile, instructions, &mut context.try_lock().unwrap());
 
         let frame = match frame_or_result {
             Ok(FrameOrResultGen::Frame(frame)) => frame,
@@ -475,15 +479,15 @@ where
 
     fn run_inner(
         frame: ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>,
-        context: &mut CTX,
+        context: Arc<Mutex<CTX>>,
     ) -> Result<FrameResult, ERROR> {
         let mut frame_stack: Vec<Self> = vec![frame];
         loop {
             let frame = frame_stack.last_mut().unwrap();
-            let call_or_result = frame.run(context)?;
+            let call_or_result = frame.run(context.clone())?;
 
             let result = match call_or_result {
-                FrameOrResultGen::Frame(init) => match frame.init(context, init)? {
+                FrameOrResultGen::Frame(init) => match frame.init(&mut context.try_lock().unwrap(), init)? {
                     FrameOrResultGen::Frame(new_frame) => {
                         frame_stack.push(new_frame);
                         continue;
@@ -501,18 +505,21 @@ where
             let Some(frame) = frame_stack.last_mut() else {
                 return Ok(result);
             };
-            frame.return_result(context, result)?;
+            frame.return_result(&mut context.try_lock().unwrap(), result)?;
         }
     }
 }
 
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION> Frame for ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send + 'static,
+    CTX: EthFrameContext + Send,
+    for<'a> CTX: 'a,
+    for<'a> INSTRUCTION: 'a,
+    for<'a> PRECOMPILE: 'a,
     ERROR: EthFrameError<CTX>,
     PRECOMPILE:
-        PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult> + 'static,
-    INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX> + 'static,
+        PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
+    INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX>,
 {
     type Context = CTX;
     type Error = ERROR;
@@ -520,20 +527,21 @@ where
     type FrameResult = FrameResult;
 
     fn init_first(
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
         let memory = Rc::new(RefCell::new(SharedMemory::new()));
-        let precompiles = PRECOMPILE::new(context);
-        let instructions = INSTRUCTION::new(context);
+        let precompiles = Arc::new(Mutex::new(PRECOMPILE::new(context.clone())));
+        let instructions = Arc::new(Mutex::new(INSTRUCTION::new(context.clone())));
 
+        let mut context = context.try_lock().unwrap();
         // Load precompiles addresses as warm.
-        for address in precompiles.warm_addresses() {
+        for address in precompiles.lock().unwrap().warm_addresses() {
             context.journal().warm_account(address);
         }
 
         memory.borrow_mut().new_context();
-        Self::init_with_context(0, frame_input, memory, precompiles, instructions, context)
+        Self::init_with_context(0, frame_input, memory, precompiles, instructions, &mut context)
     }
 
     fn final_return(
@@ -561,31 +569,31 @@ where
 
     fn run(
         &mut self,
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        let spec = context.cfg().spec().into();
+        let spec = context.try_lock().unwrap().cfg().spec().into();
 
         let depth = self.depth;
         let memory = self.memory.clone();
         let precompiles = self.precompiles.clone();
         let instructions = self.instructions.clone();
 
+        let cb = Box::new(
+            move |context: Arc<Mutex<CTX>>, call_inputs: FrameInput| -> FrameResult {
+                ArbOsFrame::run_recursive(
+                    call_inputs,
+                    context,
+                    depth,
+                    memory.clone(),
+                    precompiles.clone(),
+                    instructions.clone(),
+                )
+            });
         // Run interpreter
         let next_action = self.interpreter.run(
-            self.instructions.table(),
-            &mut *context,
-            Box::new(
-                move |context: &mut CTX, call_inputs: FrameInput| -> FrameResult {
-                    ArbOsFrame::run_recursive(
-                        call_inputs,
-                        context,
-                        depth,
-                        memory.clone(),
-                        precompiles.clone(),
-                        instructions.clone(),
-                    )
-                },
-            ),
+            self.instructions.lock().unwrap().table(),
+            context.clone(),
+            cb,
         );
 
         let mut interpreter_result = match next_action {
@@ -596,6 +604,7 @@ where
             InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
         };
 
+        let mut context = context.try_lock().unwrap();
         // Handle return from frame
         let result = match &self.data {
             FrameData::Call(frame) => {
@@ -604,7 +613,7 @@ where
                 if interpreter_result.result.is_ok() {
                     context.journal().checkpoint_commit();
                 } else {
-                    context.journal().checkpoint_revert(self.checkpoint);
+                    context.journal().checkpoint_revert(self.checkpoint.clone());
                 }
                 FrameOrResultGen::Result(FrameResult::Call(CallOutcome::new(
                     interpreter_result,
@@ -649,7 +658,7 @@ where
 
     fn return_result(
         &mut self,
-        context: &mut Self::Context,
+        context: &mut CTX,
         result: Self::FrameResult,
     ) -> Result<(), Self::Error> {
         self.memory.borrow_mut().free_context();

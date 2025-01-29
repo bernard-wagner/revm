@@ -12,7 +12,7 @@ use interpreter::{
 };
 use primitives::TxKind;
 use specification::hardfork::SpecId;
-use std::boxed::Box;
+use std::{boxed::Box, sync::{Arc, Mutex}};
 
 #[derive(Default)]
 pub struct EthExecution<
@@ -43,15 +43,20 @@ where
 
     fn init_first_frame(
         &mut self,
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
         gas_limit: u64,
     ) -> Result<FrameOrFrameResult<Self::Frame>, Self::Error> {
         // Make new frame action.
-        let spec = context.cfg().spec().into();
-        let tx = context.tx();
-        let input = tx.input().clone();
+       
 
-        let init_frame: FrameInput = match tx.kind() {
+        let init_frame: FrameInput = {
+            let context = context.clone();
+            let context = context.try_lock().unwrap();
+            let spec = context.cfg().spec().into();
+            let tx = context.tx();
+            let input = tx.input().clone();
+
+            match tx.kind() {
             TxKind::Call(target_address) => FrameInput::Call(Box::new(CallInputs {
                 input,
                 gas_limit,
@@ -83,9 +88,11 @@ where
                     }))
                 }
             }
-        };
-        FRAME::init_first(context, init_frame)
-    }
+        }
+    };
+    FRAME::init_first(context, init_frame)
+    
+}
 
     fn last_frame_result(
         &self,

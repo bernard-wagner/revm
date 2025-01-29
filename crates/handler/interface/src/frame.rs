@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::FrameOrResultGen;
 
 /// Call frame trait
@@ -8,7 +10,7 @@ pub trait Frame: Sized {
     type Error;
 
     fn init_first(
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error>;
 
@@ -25,7 +27,7 @@ pub trait Frame: Sized {
 
     fn run(
         &mut self,
-        context: &mut Self::Context,
+        context: Arc<Mutex<Self::Context>>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error>;
 
     fn return_result(
