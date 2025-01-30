@@ -1,4 +1,4 @@
-use std::{cmp::min, mem, sync::{Arc, Mutex}};
+use std::{cell::RefCell, cmp::min, mem, rc::Rc, sync::{Arc, Mutex}};
 
 use arbutil::evm::{
     api::{EvmApiMethod, Gas, VecReader},
@@ -14,19 +14,19 @@ use super::revm_types;
 
 pub struct StylusHandler<CTX> {
     pub address: Address,
-    pub api: Arc<Mutex<CTX>>,
+    pub api: Rc<RefCell<CTX>>,
     pub new_frame_cb: FrameCreateFunc<CTX>,
     pub is_static: bool,
 }
 
 unsafe impl<CTX> Send for StylusHandler<CTX> {}
 
-pub type FrameCreateFunc<CTX> = Box<dyn FnMut(Arc<Mutex<CTX>>, FrameInput) -> FrameResult>;
+pub type FrameCreateFunc<CTX> = Box<dyn FnMut(Rc<RefCell<CTX>>, FrameInput) -> FrameResult>;
 
 
 impl<CTX: CfgGetter> StylusHandler<CTX> {
     pub fn new(
-        context: Arc<Mutex<CTX>>,
+        context: Rc<RefCell<CTX>>,
         address: Address,
         cb: FrameCreateFunc<CTX>,
         is_static: bool,
@@ -41,7 +41,7 @@ impl<CTX: CfgGetter> StylusHandler<CTX> {
 
     fn wasm_account_touch(&self, is_cold: bool, with_code: bool) -> u64 {
         let code_cost = if with_code {
-            self.api.lock().unwrap().cfg().max_code_size() as u64 / 24576 * 700
+            self.api.borrow_mut().cfg().max_code_size() as u64 / 24576 * 700
         } else {
             0
         };
@@ -55,7 +55,7 @@ impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX
         req_type: EvmApiMethod,
         req_data: impl AsRef<[u8]>,
     ) -> (Vec<u8>, VecReader, Gas) {
-        let mut api = self.api.lock().unwrap();
+        let mut api = self.api.borrow_mut();
         let spec = api.cfg().spec().into();
         let mut data = req_data.as_ref().to_vec();
 

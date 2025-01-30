@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use core::cell::RefCell;
+use std::{rc::Rc, sync::{Arc, Mutex}};
 
 use primitives::{Address, Bytes};
 
@@ -8,7 +9,7 @@ pub trait PrecompileProvider: Clone {
     type Error;
 
     /// Create a new precompile.
-    fn new(context: Arc<Mutex<Self::Context>>) -> Self;
+    fn new(context: Rc<RefCell<Self::Context>>) -> Self;
 
     /// Run the precompile.
     fn run(

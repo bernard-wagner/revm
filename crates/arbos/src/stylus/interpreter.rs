@@ -1,4 +1,4 @@
-use std::{any::Any, sync::{Arc, Mutex}};
+use std::{any::Any, cell::RefCell, rc::Rc, sync::{Arc, Mutex}};
 
 use alloy_primitives::{keccak256, Bytes, U256, U64};
 use arbutil::{
@@ -78,7 +78,7 @@ impl<CTX: Host + BlockGetter + CfgGetter + Send + 'static> StylusInterpreter<CTX
         }
     }
 
-    pub fn run(&self, context: Arc<Mutex<CTX>>, cb: FrameCreateFunc<CTX>) -> InterpreterAction {
+    pub fn run(&self, context: Rc<RefCell<CTX>>, cb: FrameCreateFunc<CTX>) -> InterpreterAction {
         let evm_api = EvmApiRequestor::new(StylusHandler::new(
             context.clone(),
             self.inputs.target_address,
@@ -90,7 +90,7 @@ impl<CTX: Host + BlockGetter + CfgGetter + Send + 'static> StylusInterpreter<CTX
         let mut instance = NativeInstance::from_bytecode(
             &self.bytecode,
             evm_api,
-            self.build_evm_data(&mut context.try_lock().unwrap()),
+            self.build_evm_data(&mut context.borrow_mut()),
             CompileConfig::default(),
             stylus_config,
             wasmer_types::compilation::target::Target::default(),

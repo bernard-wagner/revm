@@ -456,14 +456,14 @@ where
 
     pub fn run_recursive(
         frame_init: FrameInput,
-        context: Arc<Mutex<CTX>>,
+        context: Rc<RefCell<CTX>>,
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
         precompile: Arc<Mutex<PRECOMPILE>>,
         instructions: Arc<Mutex<INSTRUCTION>>,
     ) -> FrameResult {
         let frame_or_result =
-            Self::init_with_context(depth, frame_init, memory, precompile, instructions, &mut context.try_lock().unwrap());
+            Self::init_with_context(depth, frame_init, memory, precompile, instructions, &mut context.borrow_mut());
 
         let frame = match frame_or_result {
             Ok(FrameOrResultGen::Frame(frame)) => frame,
@@ -479,7 +479,7 @@ where
 
     fn run_inner(
         frame: ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>,
-        context: Arc<Mutex<CTX>>,
+        context: Rc<RefCell<CTX>>,
     ) -> Result<FrameResult, ERROR> {
         let mut frame_stack: Vec<Self> = vec![frame];
         loop {
@@ -487,7 +487,7 @@ where
             let call_or_result = frame.run(context.clone())?;
 
             let result = match call_or_result {
-                FrameOrResultGen::Frame(init) => match frame.init(&mut context.try_lock().unwrap(), init)? {
+                FrameOrResultGen::Frame(init) => match frame.init(&mut context.borrow_mut(), init)? {
                     FrameOrResultGen::Frame(new_frame) => {
                         frame_stack.push(new_frame);
                         continue;
@@ -505,7 +505,7 @@ where
             let Some(frame) = frame_stack.last_mut() else {
                 return Ok(result);
             };
-            frame.return_result(&mut context.try_lock().unwrap(), result)?;
+            frame.return_result(&mut context.borrow_mut(), result)?;
         }
     }
 }
@@ -527,14 +527,14 @@ where
     type FrameResult = FrameResult;
 
     fn init_first(
-        context: Arc<Mutex<Self::Context>>,
+        context: Rc<RefCell<Self::Context>>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
         let memory = Rc::new(RefCell::new(SharedMemory::new()));
         let precompiles = Arc::new(Mutex::new(PRECOMPILE::new(context.clone())));
         let instructions = Arc::new(Mutex::new(INSTRUCTION::new(context.clone())));
 
-        let mut context = context.try_lock().unwrap();
+        let mut context = context.borrow_mut();
         // Load precompiles addresses as warm.
         for address in precompiles.lock().unwrap().warm_addresses() {
             context.journal().warm_account(address);
@@ -569,9 +569,9 @@ where
 
     fn run(
         &mut self,
-        context: Arc<Mutex<Self::Context>>,
+        context: Rc<RefCell<Self::Context>>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        let spec = context.try_lock().unwrap().cfg().spec().into();
+        let spec = context.borrow_mut().cfg().spec().into();
 
         let depth = self.depth;
         let memory = self.memory.clone();
@@ -579,7 +579,7 @@ where
         let instructions = self.instructions.clone();
 
         let cb = Box::new(
-            move |context: Arc<Mutex<CTX>>, call_inputs: FrameInput| -> FrameResult {
+            move |context: Rc<RefCell<CTX>>, call_inputs: FrameInput| -> FrameResult {
                 ArbOsFrame::run_recursive(
                     call_inputs,
                     context,
@@ -604,7 +604,7 @@ where
             InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
         };
 
-        let mut context = context.try_lock().unwrap();
+        let mut context = context.borrow_mut();
         // Handle return from frame
         let result = match &self.data {
             FrameData::Call(frame) => {

@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
         let bytecode =
             Bytes::from([STYLUS_MAGIC_BYTES.clone(), Bytes::from(RUNTIME_BYTECODE)].concat());
 
-        evm.context.try_lock().unwrap().db().insert_account_info(
+        evm.context.borrow_mut().db().insert_account_info(
             stylus_address,
             revm::state::AccountInfo {
                 balance: U256::from(0),
@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
 
     {
         let bytecode = Bytes::from(SOLIDITY_BYTECODE);
-        evm.context.try_lock().unwrap().db().insert_account_info(
+        evm.context.borrow_mut().db().insert_account_info(
             solidity_address,
             revm::state::AccountInfo {
                 balance: U256::from(0),
@@ -122,7 +122,7 @@ async fn main() -> anyhow::Result<()> {
     //     tx.kind = TxKind::Call(stylus_address);
     // });
 
-    evm.context.try_lock().unwrap().modify_tx(|tx| {
+    evm.context.borrow_mut().modify_tx(|tx| {
         tx.data = forwardToCall::new((
             solidity_address,
             forwardToCall::new((

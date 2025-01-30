@@ -92,7 +92,7 @@ where
     pub fn run<FN>(
         &mut self,
         instruction_table: &[FN; 256],
-        host: Arc<Mutex<CTX>>,
+        host: Rc<RefCell<CTX>>,
         cb: FrameCreateFunc<CTX>,
     ) -> InterpreterAction
     where
@@ -111,7 +111,7 @@ where
     fn run<FN>(
         &mut self,
         instruction_table: &[FN; 256],
-        host: Arc<Mutex<CTX>>,
+        host: Rc<RefCell<CTX>>,
         cb: FrameCreateFunc<CTX>,
     ) -> InterpreterAction
     where
@@ -120,7 +120,7 @@ where
     {
         match self {
             Self::Arb(interpreter) => interpreter.run(host, cb),
-            Self::Eth(interpreter) => interpreter.run(instruction_table, &mut host.lock().unwrap()),
+            Self::Eth(interpreter) => interpreter.run(instruction_table, &mut host.borrow_mut()),
         }
     }
 }

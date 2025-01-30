@@ -465,7 +465,7 @@ where
     type FrameResult = FrameResult;
 
     fn init_first(
-        context: Arc<Mutex<Self::Context>>,
+        context: Rc<RefCell<Self::Context>>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
 
@@ -476,11 +476,11 @@ where
 
         // Load precompiles addresses as warm.
         for address in precompiles.warm_addresses() {
-            context.try_lock().unwrap().journal().warm_account(address);
+            context.borrow_mut().journal().warm_account(address);
         }
 
         memory.borrow_mut().new_context();
-        Self::init_with_context(0, frame_input, memory, precompiles, instructions, &mut context.try_lock().unwrap())
+        Self::init_with_context(0, frame_input, memory, precompiles, instructions, &mut context.borrow_mut())
     }
 
     fn final_return(
@@ -508,18 +508,18 @@ where
 
     fn run(
         &mut self,
-        context: Arc<Mutex<Self::Context>>,
+        context: Rc<RefCell<Self::Context>>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
         
         let spec = {
-            let context = context.try_lock().unwrap();
+            let context = context.borrow_mut();
             context.cfg().spec().into()
         };
 
         // Run interpreter
         let next_action = self
             .interpreter
-            .run(self.instructions.table(), &mut context.try_lock().unwrap());
+            .run(self.instructions.table(), &mut context.borrow_mut());
 
         let mut interpreter_result = match next_action {
             InterpreterAction::NewFrame(new_frame) => {
@@ -529,7 +529,7 @@ where
             InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
         };
 
-        let mut context = context.try_lock().unwrap();
+        let mut context = context.borrow_mut();
 
         // Handle return from frame
         let result = match &self.data {

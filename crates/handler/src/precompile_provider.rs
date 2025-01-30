@@ -1,3 +1,5 @@
+use core::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use context_interface::{Cfg, CfgGetter};
@@ -30,8 +32,8 @@ where
     type Error = ERROR;
     type Output = InterpreterResult;
 
-    fn new(context: Arc<Mutex<Self::Context>>) -> Self {
-        let spec = context.try_lock().unwrap().cfg().spec().into();
+    fn new(context: Rc<RefCell<Self::Context>>) -> Self {
+        let spec = context.borrow_mut().cfg().spec().into();
         Self {
             precompiles: Precompiles::new(PrecompileSpecId::from_spec_id(spec)),
             _phantom: core::marker::PhantomData,

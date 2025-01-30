@@ -92,7 +92,7 @@ pub trait InstructionProvider: Clone {
     type WIRE: InterpreterTypes;
     type Host;
 
-    fn new(context: Arc<Mutex<Self::Host>>) -> Self;
+    fn new(context: Rc<RefCell<Self::Host>>) -> Self;
 
     fn table(&mut self) -> &[impl CustomInstruction<Wire = Self::WIRE, Host = Self::Host>; 256];
 }
@@ -120,7 +120,7 @@ where
     type WIRE = WIRE;
     type Host = HOST;
 
-    fn new(_context: Arc<Mutex<Self::Host>>) -> Self {
+    fn new(_context: Rc<RefCell<Self::Host>>) -> Self {
         Self {
             instruction_table: Rc::new(crate::table::make_instruction_table::<WIRE, HOST>()),
         }

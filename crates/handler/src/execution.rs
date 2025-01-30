@@ -12,7 +12,8 @@ use interpreter::{
 };
 use primitives::TxKind;
 use specification::hardfork::SpecId;
-use std::{boxed::Box, sync::{Arc, Mutex}};
+use core::cell::RefCell;
+use std::{boxed::Box, rc::Rc, sync::{Arc, Mutex}};
 
 #[derive(Default)]
 pub struct EthExecution<
@@ -43,7 +44,7 @@ where
 
     fn init_first_frame(
         &mut self,
-        context: Arc<Mutex<Self::Context>>,
+        context: Rc<RefCell<Self::Context>>,
         gas_limit: u64,
     ) -> Result<FrameOrFrameResult<Self::Frame>, Self::Error> {
         // Make new frame action.
@@ -51,7 +52,7 @@ where
 
         let init_frame: FrameInput = {
             let context = context.clone();
-            let context = context.try_lock().unwrap();
+            let context = context.borrow_mut();
             let spec = context.cfg().spec().into();
             let tx = context.tx();
             let input = tx.input().clone();
