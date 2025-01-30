@@ -1,8 +1,4 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    
-};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     inspector_context::InspectorContext,
@@ -12,8 +8,7 @@ use crate::{
 use auto_impl::auto_impl;
 use revm::{
     context_interface::{
-        BlockGetter,
-        CfgGetter, ErrorGetter, Journal, JournalDBError, JournalGetter,
+        BlockGetter, CfgGetter, ErrorGetter, Journal, JournalDBError, JournalGetter,
         TransactionGetter,
     },
     database_interface::{Database, EmptyDB},

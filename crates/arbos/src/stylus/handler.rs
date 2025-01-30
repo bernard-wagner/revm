@@ -1,8 +1,4 @@
-use std::{
-    cell::RefCell,
-    cmp::min,
-    rc::Rc,
-};
+use std::{cell::RefCell, cmp::min, rc::Rc};
 
 use arbutil::evm::{
     api::{EvmApiMethod, Gas, VecReader},

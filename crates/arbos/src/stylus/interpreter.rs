@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 
 use alloy_primitives::{keccak256, Bytes, U256, U64};
 use arbutil::{

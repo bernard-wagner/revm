@@ -13,11 +13,7 @@ use interpreter::{
 };
 use primitives::TxKind;
 use specification::hardfork::SpecId;
-use std::{
-    boxed::Box,
-    rc::Rc,
-    
-};
+use std::{boxed::Box, rc::Rc};
 
 #[derive(Default)]
 pub struct EthExecution<

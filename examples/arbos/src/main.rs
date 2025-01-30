@@ -1,10 +1,7 @@
 //! Optimism-specific constants, types, and helpers.
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
-use std::{
-    convert::Infallible,
-    
-};
+use std::convert::Infallible;
 
 use anyhow::{anyhow, bail};
 use database::CacheDB;

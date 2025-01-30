@@ -11,11 +11,7 @@ use revm::{
     },
     JournalEntry,
 };
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    
-};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     journal::{JournalExt, JournalExtGetter},

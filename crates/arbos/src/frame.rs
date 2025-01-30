@@ -21,7 +21,6 @@ use revm::specification::{
     hardfork::SpecId::{self, HOMESTEAD, LONDON, OSAKA, SPURIOUS_DRAGON},
 };
 use revm::state::Bytecode;
-use std::sync::Mutex;
 
 use crate::interpreter::ArbInterpreter;
 use revm::handler::{CallFrame, CreateFrame, EOFCreateFrame, FrameData, FrameResult};
@@ -37,9 +36,9 @@ pub struct ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTIONS> {
     /// Interpreter.
     pub interpreter: ArbInterpreter<CTX>,
     /// Precompiles provider.
-    pub precompiles: Arc<Mutex<PRECOMPILE>>,
+    pub precompiles: PRECOMPILE,
     /// Instruction provider.
-    pub instructions: Arc<Mutex<INSTRUCTIONS>>,
+    pub instructions: INSTRUCTIONS,
     // This is worth making as a generic type FrameSharedContext.
     pub memory: Rc<RefCell<SharedMemory>>,
 }
@@ -53,8 +52,8 @@ where
         depth: usize,
         interpreter: ArbInterpreter<CTX>,
         checkpoint: JournalCheckpoint,
-        precompiles: Arc<Mutex<PRECOMP>>,
-        instructions: Arc<Mutex<INST>>,
+        precompiles: PRECOMP,
+        instructions: INST,
         memory: Rc<RefCell<SharedMemory>>,
     ) -> Self {
         Self {
@@ -87,8 +86,8 @@ where
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
         inputs: &CallInputs,
-        precompile: Arc<Mutex<PRECOMPILE>>,
-        instructions: Arc<Mutex<INSTRUCTION>>,
+        mut precompile: PRECOMPILE,
+        instructions: INSTRUCTION,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         let gas = Gas::new(inputs.gas_limit);
 
@@ -131,7 +130,7 @@ where
         }
         let is_ext_delegate_call = inputs.scheme.is_ext_delegate_call();
         if !is_ext_delegate_call {
-            if let Some(result) = precompile.lock().unwrap().run(
+            if let Some(result) = precompile.run(
                 context,
                 &inputs.bytecode_address,
                 &inputs.input,
@@ -211,8 +210,8 @@ where
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
         inputs: &CreateInputs,
-        precompile: Arc<Mutex<PRECOMPILE>>,
-        instructions: Arc<Mutex<INSTRUCTION>>,
+        precompile: PRECOMPILE,
+        instructions: INSTRUCTION,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         let spec = context.cfg().spec().into();
         let return_error = |e| {
@@ -317,8 +316,8 @@ where
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
         inputs: &EOFCreateInputs,
-        precompile: Arc<Mutex<PRECOMPILE>>,
-        instructions: Arc<Mutex<INSTRUCTION>>,
+        precompile: PRECOMPILE,
+        instructions: INSTRUCTION,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         let spec = context.cfg().spec().into();
         let return_error = |e| {
@@ -431,8 +430,8 @@ where
         depth: usize,
         frame_init: FrameInput,
         memory: Rc<RefCell<SharedMemory>>,
-        precompile: Arc<Mutex<PRECOMPILE>>,
-        instructions: Arc<Mutex<INSTRUCTION>>,
+        precompile: PRECOMPILE,
+        instructions: INSTRUCTION,
         context: &mut CTX,
     ) -> Result<FrameOrResultGen<Self, FrameResult>, ERROR> {
         match frame_init {
@@ -458,8 +457,8 @@ where
         context: Rc<RefCell<CTX>>,
         depth: usize,
         memory: Rc<RefCell<SharedMemory>>,
-        precompile: Arc<Mutex<PRECOMPILE>>,
-        instructions: Arc<Mutex<INSTRUCTION>>,
+        precompile: PRECOMPILE,
+        instructions: INSTRUCTION,
     ) -> FrameResult {
         let frame_or_result = Self::init_with_context(
             depth,
@@ -537,12 +536,12 @@ where
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
         let memory = Rc::new(RefCell::new(SharedMemory::new()));
-        let precompiles = Arc::new(Mutex::new(PRECOMPILE::new(context.clone())));
-        let instructions = Arc::new(Mutex::new(INSTRUCTION::new(context.clone())));
+        let precompiles = PRECOMPILE::new(context.clone());
+        let instructions = INSTRUCTION::new(context.clone());
 
         let mut context = context.borrow_mut();
         // Load precompiles addresses as warm.
-        for address in precompiles.lock().unwrap().warm_addresses() {
+        for address in precompiles.warm_addresses() {
             context.journal().warm_account(address);
         }
 
@@ -604,11 +603,9 @@ where
             },
         );
         // Run interpreter
-        let next_action = self.interpreter.run(
-            self.instructions.lock().unwrap().table(),
-            context.clone(),
-            cb,
-        );
+        let next_action = self
+            .interpreter
+            .run(self.instructions.table(), context.clone(), cb);
 
         let mut interpreter_result = match next_action {
             InterpreterAction::NewFrame(new_frame) => {
@@ -672,7 +669,7 @@ where
 
     fn return_result(
         &mut self,
-        context: &mut CTX,
+        context: &mut Self::Context,
         result: Self::FrameResult,
     ) -> Result<(), Self::Error> {
         self.memory.borrow_mut().free_context();
