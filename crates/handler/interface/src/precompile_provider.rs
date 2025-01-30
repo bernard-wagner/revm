@@ -1,5 +1,8 @@
 use core::cell::RefCell;
-use std::{rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use primitives::{Address, Bytes};
 

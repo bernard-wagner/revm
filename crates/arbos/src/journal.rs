@@ -1,6 +1,12 @@
 use alloy_primitives::{Address, B256, U256};
 use revm::{
-    context_interface::{Journal, JournalCheckpoint}, interpreter::{SStoreResult, SelfDestructResult, StateLoad}, precompile::{HashSet, Log}, primitives::hash_map::HashMap, specification::hardfork::SpecId, state::{Account, Bytecode, EvmState}, Database, JournaledState
+    context_interface::{Journal, JournalCheckpoint},
+    interpreter::{SStoreResult, SelfDestructResult, StateLoad},
+    precompile::{HashSet, Log},
+    primitives::hash_map::HashMap,
+    specification::hardfork::SpecId,
+    state::{Account, Bytecode, EvmState},
+    Database, JournaledState,
 };
 
 use crate::db::WasmTarget;
@@ -21,7 +27,7 @@ pub struct ArbOsJournaledState<DB> {
 
 pub static STYLUS_DISCRIMINANT: [u8; 3] = [0xEF, 0xF0, 0x00];
 
-impl<DB: Database>  ArbOsJournaledState<DB> {
+impl<DB: Database> ArbOsJournaledState<DB> {
     pub fn new(spec: SpecId, database: DB) -> ArbOsJournaledState<DB> {
         Self {
             inner: JournaledState::new(spec, database),
@@ -53,13 +59,14 @@ impl<DB: Database>  ArbOsJournaledState<DB> {
 }
 
 impl<DB: Database> ArbOsJournal for ArbOsJournaledState<DB> {
-
     fn activate_wasm(&mut self, module_hash: B256, asm_map: HashMap<WasmTarget, Vec<u8>>) {
         self.activated_wasms.entry(module_hash).or_insert(asm_map);
     }
 
     fn try_get_activated_asm(&self, target: WasmTarget, module_hash: B256) -> Option<Vec<u8>> {
-        self.activated_wasms.get(&module_hash).and_then(|map| map.get(&target).cloned())
+        self.activated_wasms
+            .get(&module_hash)
+            .and_then(|map| map.get(&target).cloned())
     }
 
     fn get_stylus_pages(&self) -> (u16, u16) {
@@ -78,7 +85,7 @@ impl<DB: Database> Journal for ArbOsJournaledState<DB> {
     type Database = DB;
     type FinalOutput = (EvmState, Vec<Log>);
     fn new(database: Self::Database) -> Self {
-       Self::new(SpecId::LATEST, database)
+        Self::new(SpecId::LATEST, database)
     }
 
     fn db_ref(&self) -> &Self::Database {
@@ -89,11 +96,20 @@ impl<DB: Database> Journal for ArbOsJournaledState<DB> {
         self.inner.db()
     }
 
-    fn sload(&mut self, address: Address, key: U256) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+    fn sload(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
         self.inner.sload(address, key)
     }
 
-    fn sstore(&mut self, address: Address, key: U256, value: U256) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+    fn sstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.inner.sstore(address, key, value)
     }
 
@@ -109,11 +125,19 @@ impl<DB: Database> Journal for ArbOsJournaledState<DB> {
         self.inner.log(log)
     }
 
-    fn selfdestruct(&mut self, address: Address, target: Address) -> Result<StateLoad<SelfDestructResult>, <Self::Database as Database>::Error> {
+    fn selfdestruct(
+        &mut self,
+        address: Address,
+        target: Address,
+    ) -> Result<StateLoad<SelfDestructResult>, <Self::Database as Database>::Error> {
         self.inner.selfdestruct(address, target)
     }
 
-    fn warm_account_and_storage(&mut self, address: Address, storage_keys: impl IntoIterator<Item = U256>) -> Result<(), <Self::Database as Database>::Error> {
+    fn warm_account_and_storage(
+        &mut self,
+        address: Address,
+        storage_keys: impl IntoIterator<Item = U256>,
+    ) -> Result<(), <Self::Database as Database>::Error> {
         self.inner.warm_account_and_storage(address, storage_keys)
     }
 
@@ -137,23 +161,46 @@ impl<DB: Database> Journal for ArbOsJournaledState<DB> {
         self.inner.touch_account(address)
     }
 
-    fn transfer(&mut self, from: &Address, to: &Address, balance: U256) -> Result<Option<revm::context_interface::journaled_state::TransferError>, <Self::Database as Database>::Error> {
+    fn transfer(
+        &mut self,
+        from: &Address,
+        to: &Address,
+        balance: U256,
+    ) -> Result<
+        Option<revm::context_interface::journaled_state::TransferError>,
+        <Self::Database as Database>::Error,
+    > {
         self.inner.transfer(from, to, balance)
     }
 
-    fn inc_account_nonce(&mut self, address: Address) -> Result<Option<u64>, <Self::Database as Database>::Error> {
+    fn inc_account_nonce(
+        &mut self,
+        address: Address,
+    ) -> Result<Option<u64>, <Self::Database as Database>::Error> {
         self.inner.inc_account_nonce(address)
     }
 
-    fn load_account(&mut self, address: Address) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error> {
+    fn load_account(
+        &mut self,
+        address: Address,
+    ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error> {
         self.inner.load_account(address)
     }
 
-    fn load_account_code(&mut self, address: Address) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error> {
+    fn load_account_code(
+        &mut self,
+        address: Address,
+    ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error> {
         self.inner.load_account_code(address)
     }
 
-    fn load_account_delegated(&mut self, address: Address) -> Result<StateLoad<revm::context_interface::journaled_state::AccountLoad>, <Self::Database as Database>::Error> {
+    fn load_account_delegated(
+        &mut self,
+        address: Address,
+    ) -> Result<
+        StateLoad<revm::context_interface::journaled_state::AccountLoad>,
+        <Self::Database as Database>::Error,
+    > {
         self.inner.load_account_delegated(address)
     }
 
@@ -177,8 +224,15 @@ impl<DB: Database> Journal for ArbOsJournaledState<DB> {
         self.inner.checkpoint_revert(checkpoint)
     }
 
-    fn create_account_checkpoint(&mut self, caller: Address, address: Address, balance: U256, spec_id: SpecId) -> Result<JournalCheckpoint, revm::context_interface::journaled_state::TransferError> {
-        self.inner.create_account_checkpoint(caller, address, balance, spec_id)
+    fn create_account_checkpoint(
+        &mut self,
+        caller: Address,
+        address: Address,
+        balance: U256,
+        spec_id: SpecId,
+    ) -> Result<JournalCheckpoint, revm::context_interface::journaled_state::TransferError> {
+        self.inner
+            .create_account_checkpoint(caller, address, balance, spec_id)
     }
 
     fn depth(&self) -> usize {
@@ -188,6 +242,4 @@ impl<DB: Database> Journal for ArbOsJournaledState<DB> {
     fn finalize(&mut self) -> Result<Self::FinalOutput, <Self::Database as Database>::Error> {
         self.inner.finalize()
     }
-    
-
 }

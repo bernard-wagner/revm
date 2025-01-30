@@ -105,13 +105,13 @@ where
             return return_result(InstructionResult::CallTooDeep);
         }
 
-            // Make account warm and loaded
-            let _ = context
-                .journal()
-                .load_account_delegated(inputs.bytecode_address)?;
+        // Make account warm and loaded
+        let _ = context
+            .journal()
+            .load_account_delegated(inputs.bytecode_address)?;
 
-            // Create subroutine checkpoint
-            let checkpoint = context.journal().checkpoint();
+        // Create subroutine checkpoint
+        let checkpoint = context.journal().checkpoint();
 
         // Touch address. For "EIP-158 State Clear", this will erase empty accounts.
         if let CallValue::Transfer(value) = inputs.value {
@@ -468,11 +468,9 @@ where
         context: Rc<RefCell<Self::Context>>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-
         let memory = Rc::new(RefCell::new(SharedMemory::new()));
         let precompiles = PRECOMPILE::new(context.clone());
         let instructions = INSTRUCTION::new(context.clone());
-
 
         // Load precompiles addresses as warm.
         for address in precompiles.warm_addresses() {
@@ -480,7 +478,14 @@ where
         }
 
         memory.borrow_mut().new_context();
-        Self::init_with_context(0, frame_input, memory, precompiles, instructions, &mut context.borrow_mut())
+        Self::init_with_context(
+            0,
+            frame_input,
+            memory,
+            precompiles,
+            instructions,
+            &mut context.borrow_mut(),
+        )
     }
 
     fn final_return(
@@ -510,7 +515,6 @@ where
         &mut self,
         context: Rc<RefCell<Self::Context>>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        
         let spec = {
             let context = context.borrow_mut();
             context.cfg().spec().into()

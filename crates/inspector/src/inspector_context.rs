@@ -1,10 +1,17 @@
 use revm::{
     context_interface::{
-        block::BlockSetter, journaled_state::AccountLoad, transaction::TransactionSetter, BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, JournalGetter, PerformantContextAccess, TransactionGetter
-    }, database_interface::Database, handler::FrameResult, interpreter::{
+        block::BlockSetter, journaled_state::AccountLoad, transaction::TransactionSetter,
+        BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, JournalGetter,
+        PerformantContextAccess, TransactionGetter,
+    },
+    database_interface::Database,
+    handler::FrameResult,
+    interpreter::{
         interpreter::EthInterpreter, FrameInput, Host, Interpreter, SStoreResult,
         SelfDestructResult, StateLoad,
-    }, primitives::{Address, Bytes, Log, B256, U256}, JournaledState
+    },
+    primitives::{Address, Bytes, Log, B256, U256},
+    JournaledState,
 };
 use std::vec::Vec;
 
@@ -44,7 +51,6 @@ where
 impl<INSP: GetInspector<CTX, EthInterpreter>, DB, CTX> Host for InspectorContext<INSP, DB, CTX>
 where
     CTX: Host + DatabaseGetter<Database = DB>,
-
 {
     fn block_hash(&mut self, requested_number: u64) -> Option<B256> {
         self.inner.block_hash(requested_number)
@@ -104,7 +110,6 @@ impl<INSP, DB, CTX> InspectorCtx for InspectorContext<INSP, DB, CTX>
 where
     INSP: GetInspector<CTX, EthInterpreter>,
     CTX: DatabaseGetter<Database = DB>,
-
 {
     type IT = EthInterpreter<()>;
 
@@ -189,7 +194,6 @@ where
 impl<INSP, DB, CTX> CfgGetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: CfgGetter + DatabaseGetter<Database = DB>,
-
 {
     type Cfg = <CTX as CfgGetter>::Cfg;
 
@@ -202,7 +206,6 @@ impl<INSP, DB, CTX> JournalGetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: JournalGetter + DatabaseGetter<Database = DB>,
     DB: Database,
-
 {
     type Journal = <CTX as JournalGetter>::Journal;
 
@@ -219,7 +222,6 @@ impl<INSP, DB, CTX> DatabaseGetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: DatabaseGetter<Database = DB>,
     DB: Database,
-
 {
     type Database = <CTX as DatabaseGetter>::Database;
 
@@ -235,7 +237,6 @@ where
 impl<INSP, DB, CTX> ErrorGetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: ErrorGetter + JournalGetter<Database = DB>,
-
 {
     type Error = <CTX as ErrorGetter>::Error;
 
@@ -247,7 +248,6 @@ where
 impl<INSP, DB, CTX> TransactionGetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: TransactionGetter + DatabaseGetter<Database = DB>,
-
 {
     type Transaction = <CTX as TransactionGetter>::Transaction;
 
@@ -259,7 +259,6 @@ where
 impl<INSP, DB, CTX> TransactionSetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: TransactionSetter + DatabaseGetter<Database = DB>,
-
 {
     fn set_tx(&mut self, tx: <Self as TransactionGetter>::Transaction) {
         self.inner.set_tx(tx);
@@ -269,7 +268,6 @@ where
 impl<INSP, DB, CTX> BlockGetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: BlockGetter + DatabaseGetter<Database = DB>,
-
 {
     type Block = <CTX as BlockGetter>::Block;
 
@@ -281,7 +279,6 @@ where
 impl<INSP, DB, CTX> BlockSetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: BlockSetter + DatabaseGetter<Database = DB>,
-
 {
     fn set_block(&mut self, block: <Self as BlockGetter>::Block) {
         self.inner.set_block(block);
@@ -291,7 +288,6 @@ where
 impl<INSP, DB, CTX> JournalExtGetter for InspectorContext<INSP, DB, CTX>
 where
     CTX: JournalExtGetter + DatabaseGetter<Database = DB>,
-
 {
     type JournalExt = <CTX as JournalExtGetter>::JournalExt;
 
@@ -303,7 +299,6 @@ where
 impl<INSP, DB: Database, CTX> PerformantContextAccess for InspectorContext<INSP, DB, CTX>
 where
     CTX: PerformantContextAccess<Error = DB::Error> + DatabaseGetter<Database = DB>,
-
 {
     type Error = <CTX as PerformantContextAccess>::Error;
 

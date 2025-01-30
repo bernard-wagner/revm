@@ -1,7 +1,10 @@
 use crate::util::FrameOrFrameResult;
 pub use crate::{Frame, FrameOrResultGen};
 use core::cell::RefCell;
-use std::{rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 pub use std::{vec, vec::Vec};
 
 pub trait ExecutionHandler {
@@ -35,14 +38,16 @@ pub trait ExecutionHandler {
             let call_or_result = frame.run(context.clone())?;
 
             let mut result = match call_or_result {
-                FrameOrResultGen::Frame(init) => match frame.init(&mut context.borrow_mut(), init)? {
-                    FrameOrResultGen::Frame(new_frame) => {
-                        frame_stack.push(new_frame);
-                        continue;
+                FrameOrResultGen::Frame(init) => {
+                    match frame.init(&mut context.borrow_mut(), init)? {
+                        FrameOrResultGen::Frame(new_frame) => {
+                            frame_stack.push(new_frame);
+                            continue;
+                        }
+                        // Dont pop the frame as new frame was not created.
+                        FrameOrResultGen::Result(result) => result,
                     }
-                    // Dont pop the frame as new frame was not created.
-                    FrameOrResultGen::Result(result) => result,
-                },
+                }
                 FrameOrResultGen::Result(result) => {
                     // Pop frame that returned result
                     frame_stack.pop();

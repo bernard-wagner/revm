@@ -85,7 +85,7 @@ impl<CTX, EXT: Default, MG: MemoryGetter> ArbInterpreter<CTX, EXT, MG> {
 
 impl<CTX, EXT: Default, MG: MemoryGetter> ArbInterpreter<CTX, EXT, MG>
 where
-    CTX: Host + BlockGetter + CfgGetter + Send,
+    CTX: Host + BlockGetter + CfgGetter,
     for<'a> CTX: 'a,
 {
     /// Executes the interpreter until it returns or stops.
@@ -105,7 +105,7 @@ where
 
 impl<CTX, EXT: Default, MG: MemoryGetter> InternalInterpreter<CTX, EXT, MG>
 where
-    CTX: Host + BlockGetter + CfgGetter + Send,
+    CTX: Host + BlockGetter + CfgGetter,
     for<'a> CTX: 'a,
 {
     fn run<FN>(

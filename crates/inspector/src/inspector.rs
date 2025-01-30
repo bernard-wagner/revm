@@ -1,4 +1,8 @@
-use std::{cell::RefCell, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     inspector_context::InspectorContext,
@@ -8,17 +12,27 @@ use crate::{
 use auto_impl::auto_impl;
 use revm::{
     context_interface::{
-        block::BlockSetter, result::ExecutionResult, transaction::TransactionSetter, BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalDBError, JournalGetter, PerformantContextAccess, TransactionGetter
-    }, database_interface::{Database, EmptyDB}, handler::{
+        block::BlockSetter, result::ExecutionResult, transaction::TransactionSetter, BlockGetter,
+        CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalDBError, JournalGetter,
+        PerformantContextAccess, TransactionGetter,
+    },
+    database_interface::{Database, EmptyDB},
+    handler::{
         EthExecution, EthFrame, EthHandler, EthPostExecution, EthPreExecution,
         EthPrecompileProvider, EthValidation, FrameResult,
-    }, handler_interface::{Frame, FrameOrResultGen, PrecompileProvider}, interpreter::{
+    },
+    handler_interface::{Frame, FrameOrResultGen, PrecompileProvider},
+    interpreter::{
         interpreter::EthInterpreter,
         interpreter_types::{Jumps, LoopControl},
         table::CustomInstruction,
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, FrameInput, Host,
         Instruction, InstructionResult, Interpreter, InterpreterResult, InterpreterTypes,
-    }, precompile::PrecompileErrors, primitives::{Address, Log, U256}, state::EvmState, Context, DatabaseCommit, Error, Evm, EvmCommit, JournaledState
+    },
+    precompile::PrecompileErrors,
+    primitives::{Address, Log, U256},
+    state::EvmState,
+    Context, DatabaseCommit, Error, Evm, EvmCommit, JournaledState,
 };
 
 /// EVM [Interpreter] callbacks.
@@ -259,7 +273,7 @@ where
         context: Rc<RefCell<Self::Context>>,
         mut frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        if let Some(output) =  context.borrow_mut().frame_start(&mut frame_input) {
+        if let Some(output) = context.borrow_mut().frame_start(&mut frame_input) {
             return Ok(FrameOrResultGen::Result(output));
         }
         let mut ret = EthFrame::init_first(context.clone(), frame_input)
@@ -270,7 +284,9 @@ where
                 context.borrow_mut().frame_end(res);
             }
             Ok(FrameOrResultGen::Frame(frame)) => {
-                context.borrow_mut().initialize_interp(&mut frame.eth_frame.interpreter);
+                context
+                    .borrow_mut()
+                    .initialize_interp(&mut frame.eth_frame.interpreter);
             }
             _ => (),
         }
@@ -290,7 +306,6 @@ where
         context: &mut CTX,
         mut frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-  
         if let Some(output) = context.frame_start(&mut frame_input) {
             return Ok(FrameOrResultGen::Result(output));
         }

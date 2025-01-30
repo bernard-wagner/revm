@@ -4,7 +4,10 @@
 use alloy_consensus::Transaction;
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_provider::{
-    network::{primitives::{BlockTransactions, BlockTransactionsKind}, Ethereum},
+    network::{
+        primitives::{BlockTransactions, BlockTransactionsKind},
+        Ethereum,
+    },
     Provider, ProviderBuilder, RootProvider,
 };
 use database::{AlloyDB, CacheDB, State, StateBuilder};
@@ -14,10 +17,14 @@ use inspector::{
     InspectorMainEvm,
 };
 use revm::{
-    context::{BlockEnv, CfgEnv, TxEnv}, database_interface::WrapDatabaseAsync, handler::{
+    context::{BlockEnv, CfgEnv, TxEnv},
+    database_interface::WrapDatabaseAsync,
+    handler::{
         EthExecution, EthHandler, EthPostExecution, EthPreExecution, EthPrecompileProvider,
         EthValidation,
-    }, primitives::TxKind, Context, EvmCommit, JournaledState
+    },
+    primitives::TxKind,
+    Context, EvmCommit, JournaledState,
 };
 use std::io::BufWriter;
 use std::io::Write;
@@ -81,7 +88,7 @@ async fn main() -> anyhow::Result<()> {
     let cache_db: CacheDB<_> = CacheDB::new(state_db);
     let mut state = StateBuilder::new_with_database(cache_db).build();
 
-    let inner = Context::builder()                
+    let inner = Context::builder()
         .with_db(&mut state)
         .modify_block_chained(|b| {
             b.number = block.header.number;
@@ -96,10 +103,7 @@ async fn main() -> anyhow::Result<()> {
             c.chain_id = chain_id;
         });
 
-    let inspector_context = InspectorContext::new(
-        inner,
-        TracerEip3155::new(Box::new(stdout())),
-    );
+    let inspector_context = InspectorContext::new(inner, TracerEip3155::new(Box::new(stdout())));
 
     let mut evm = InspectorMainEvm::new(
         inspector_context,
@@ -162,7 +166,10 @@ async fn main() -> anyhow::Result<()> {
         let writer = FlushWriter::new(Arc::clone(&inner));
 
         // Inspect and commit the transaction to the EVM
-        evm.context.borrow_mut().inspector.set_writer(Box::new(writer));
+        evm.context
+            .borrow_mut()
+            .inspector
+            .set_writer(Box::new(writer));
 
         let res = evm.exec_commit();
 

@@ -1,5 +1,4 @@
 use core::{cell::RefCell, cmp::min};
-use std::sync::Mutex;
 use revm::bytecode::{Eof, EOF_MAGIC_BYTES};
 use revm::context_interface::{
     journaled_state::{Journal, JournalCheckpoint},
@@ -22,6 +21,7 @@ use revm::specification::{
     hardfork::SpecId::{self, HOMESTEAD, LONDON, OSAKA, SPURIOUS_DRAGON},
 };
 use revm::state::Bytecode;
+use std::sync::Mutex;
 
 use crate::interpreter::ArbInterpreter;
 use revm::handler::{CallFrame, CreateFrame, EOFCreateFrame, FrameData, FrameResult};
@@ -72,13 +72,12 @@ where
 
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION> ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send,
+    CTX: EthFrameContext,
     for<'a> CTX: 'a,
     for<'a> INSTRUCTION: 'a,
     for<'a> PRECOMPILE: 'a,
     ERROR: EthFrameError<CTX>,
-    PRECOMPILE:
-        PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
+    PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
     INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX>,
 {
     /// Make call frame
@@ -462,8 +461,14 @@ where
         precompile: Arc<Mutex<PRECOMPILE>>,
         instructions: Arc<Mutex<INSTRUCTION>>,
     ) -> FrameResult {
-        let frame_or_result =
-            Self::init_with_context(depth, frame_init, memory, precompile, instructions, &mut context.borrow_mut());
+        let frame_or_result = Self::init_with_context(
+            depth,
+            frame_init,
+            memory,
+            precompile,
+            instructions,
+            &mut context.borrow_mut(),
+        );
 
         let frame = match frame_or_result {
             Ok(FrameOrResultGen::Frame(frame)) => frame,
@@ -487,14 +492,16 @@ where
             let call_or_result = frame.run(context.clone())?;
 
             let result = match call_or_result {
-                FrameOrResultGen::Frame(init) => match frame.init(&mut context.borrow_mut(), init)? {
-                    FrameOrResultGen::Frame(new_frame) => {
-                        frame_stack.push(new_frame);
-                        continue;
+                FrameOrResultGen::Frame(init) => {
+                    match frame.init(&mut context.borrow_mut(), init)? {
+                        FrameOrResultGen::Frame(new_frame) => {
+                            frame_stack.push(new_frame);
+                            continue;
+                        }
+                        // Dont pop the frame as new frame was not created.
+                        FrameOrResultGen::Result(result) => result,
                     }
-                    // Dont pop the frame as new frame was not created.
-                    FrameOrResultGen::Result(result) => result,
-                },
+                }
                 FrameOrResultGen::Result(result) => {
                     // Pop frame that returned result
                     frame_stack.pop();
@@ -512,13 +519,12 @@ where
 
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION> Frame for ArbOsFrame<CTX, ERROR, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send,
+    CTX: EthFrameContext,
     for<'a> CTX: 'a,
     for<'a> INSTRUCTION: 'a,
     for<'a> PRECOMPILE: 'a,
     ERROR: EthFrameError<CTX>,
-    PRECOMPILE:
-        PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
+    PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
     INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX>,
 {
     type Context = CTX;
@@ -541,7 +547,14 @@ where
         }
 
         memory.borrow_mut().new_context();
-        Self::init_with_context(0, frame_input, memory, precompiles, instructions, &mut context)
+        Self::init_with_context(
+            0,
+            frame_input,
+            memory,
+            precompiles,
+            instructions,
+            &mut context,
+        )
     }
 
     fn final_return(
@@ -588,7 +601,8 @@ where
                     precompiles.clone(),
                     instructions.clone(),
                 )
-            });
+            },
+        );
         // Run interpreter
         let next_action = self.interpreter.run(
             self.instructions.lock().unwrap().table(),

@@ -1,4 +1,9 @@
-use std::{any::Any, cell::RefCell, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    any::Any,
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use alloy_primitives::{keccak256, Bytes, U256, U64};
 use arbutil::{
@@ -46,7 +51,7 @@ impl<CTX> StylusInterpreter<CTX> {
     }
 }
 
-impl<CTX: Host + BlockGetter + CfgGetter + Send + 'static> StylusInterpreter<CTX> {
+impl<CTX: Host + BlockGetter + CfgGetter + 'static> StylusInterpreter<CTX> {
     fn build_evm_data(&self, host: &mut CTX) -> EvmData {
         let block = host.block();
         let tx = host.tx();

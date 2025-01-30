@@ -1,7 +1,10 @@
 //! Optimism-specific constants, types, and helpers.
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
-use std::{convert::Infallible, sync::{Arc, Mutex}};
+use std::{
+    convert::Infallible,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{anyhow, bail};
 use database::CacheDB;
@@ -64,7 +67,6 @@ async fn main() -> anyhow::Result<()> {
             EthPostExecution::new(),
         ),
     );
-
 
     //println!("name: {:?}", evm.handler.execution.name());
     {

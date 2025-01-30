@@ -1,13 +1,25 @@
-use std::{cell::RefCell, cmp::min, mem, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    cell::RefCell,
+    cmp::min,
+    mem,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use arbutil::evm::{
     api::{EvmApiMethod, Gas, VecReader},
     req::RequestHandler,
 };
 use revm::{
-    context::Cfg, context_interface::CfgGetter, handler::FrameResult, interpreter::{
-        self, gas::{self, sload_cost, sstore_cost}, CallInputs, CreateInputs, CreateScheme, FrameInput, Host
-    }, primitives::{Address, Log}
+    context::Cfg,
+    context_interface::CfgGetter,
+    handler::FrameResult,
+    interpreter::{
+        self,
+        gas::{self, sload_cost, sstore_cost},
+        CallInputs, CreateInputs, CreateScheme, FrameInput, Host,
+    },
+    primitives::{Address, Log},
 };
 
 use super::revm_types;
@@ -22,7 +34,6 @@ pub struct StylusHandler<CTX> {
 unsafe impl<CTX> Send for StylusHandler<CTX> {}
 
 pub type FrameCreateFunc<CTX> = Box<dyn FnMut(Rc<RefCell<CTX>>, FrameInput) -> FrameResult>;
-
 
 impl<CTX: CfgGetter> StylusHandler<CTX> {
     pub fn new(
@@ -49,7 +60,7 @@ impl<CTX: CfgGetter> StylusHandler<CTX> {
     }
 }
 
-impl<CTX: Host + Send + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
+impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
     fn request(
         &mut self,
         req_type: EvmApiMethod,

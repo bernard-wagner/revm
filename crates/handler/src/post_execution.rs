@@ -9,7 +9,11 @@ use interpreter::SuccessOrHalt;
 use primitives::{Log, U256};
 use specification::hardfork::SpecId;
 use state::EvmState;
-use std::{boxed::Box, sync::{Arc, Mutex}, vec::Vec};
+use std::{
+    boxed::Box,
+    sync::{Arc, Mutex},
+    vec::Vec,
+};
 
 use super::frame_data::FrameResult;
 

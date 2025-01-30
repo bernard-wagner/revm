@@ -10,11 +10,11 @@ use revm::{
     Context, Database, Evm,
 };
 
+pub mod db;
 pub mod frame;
 pub mod interpreter;
-pub mod stylus;
 pub mod journal;
-pub mod db;
+pub mod stylus;
 
 pub type ArbOsExecution<
     CTX,

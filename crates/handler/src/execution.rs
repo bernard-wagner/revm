@@ -4,6 +4,7 @@ use context_interface::{
     result::InvalidTransaction, BlockGetter, Cfg, CfgGetter, ErrorGetter, JournalDBError,
     JournalGetter, Transaction, TransactionGetter,
 };
+use core::cell::RefCell;
 use handler_interface::{util::FrameOrFrameResult, ExecutionHandler, Frame as FrameTrait};
 use interpreter::{
     interpreter::{EthInstructionProvider, EthInterpreter},
@@ -12,8 +13,11 @@ use interpreter::{
 };
 use primitives::TxKind;
 use specification::hardfork::SpecId;
-use core::cell::RefCell;
-use std::{boxed::Box, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    boxed::Box,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Default)]
 pub struct EthExecution<
@@ -48,7 +52,6 @@ where
         gas_limit: u64,
     ) -> Result<FrameOrFrameResult<Self::Frame>, Self::Error> {
         // Make new frame action.
-       
 
         let init_frame: FrameInput = {
             let context = context.clone();
@@ -58,42 +61,41 @@ where
             let input = tx.input().clone();
 
             match tx.kind() {
-            TxKind::Call(target_address) => FrameInput::Call(Box::new(CallInputs {
-                input,
-                gas_limit,
-                target_address,
-                bytecode_address: target_address,
-                caller: tx.caller(),
-                value: CallValue::Transfer(tx.value()),
-                scheme: CallScheme::Call,
-                is_static: false,
-                is_eof: false,
-                return_memory_offset: 0..0,
-            })),
-            TxKind::Create => {
-                // If first byte of data is magic 0xEF00, then it is EOFCreate.
-                if spec.is_enabled_in(SpecId::OSAKA) && input.starts_with(&EOF_MAGIC_BYTES) {
-                    FrameInput::EOFCreate(Box::new(EOFCreateInputs::new(
-                        tx.caller(),
-                        tx.value(),
-                        gas_limit,
-                        EOFCreateKind::Tx { initdata: input },
-                    )))
-                } else {
-                    FrameInput::Create(Box::new(CreateInputs {
-                        caller: tx.caller(),
-                        scheme: CreateScheme::Create,
-                        value: tx.value(),
-                        init_code: input,
-                        gas_limit,
-                    }))
+                TxKind::Call(target_address) => FrameInput::Call(Box::new(CallInputs {
+                    input,
+                    gas_limit,
+                    target_address,
+                    bytecode_address: target_address,
+                    caller: tx.caller(),
+                    value: CallValue::Transfer(tx.value()),
+                    scheme: CallScheme::Call,
+                    is_static: false,
+                    is_eof: false,
+                    return_memory_offset: 0..0,
+                })),
+                TxKind::Create => {
+                    // If first byte of data is magic 0xEF00, then it is EOFCreate.
+                    if spec.is_enabled_in(SpecId::OSAKA) && input.starts_with(&EOF_MAGIC_BYTES) {
+                        FrameInput::EOFCreate(Box::new(EOFCreateInputs::new(
+                            tx.caller(),
+                            tx.value(),
+                            gas_limit,
+                            EOFCreateKind::Tx { initdata: input },
+                        )))
+                    } else {
+                        FrameInput::Create(Box::new(CreateInputs {
+                            caller: tx.caller(),
+                            scheme: CreateScheme::Create,
+                            value: tx.value(),
+                            init_code: input,
+                            gas_limit,
+                        }))
+                    }
                 }
             }
-        }
-    };
-    FRAME::init_first(context, init_frame)
-    
-}
+        };
+        FRAME::init_first(context, init_frame)
+    }
 
     fn last_frame_result(
         &self,

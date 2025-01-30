@@ -23,7 +23,10 @@ pub use runtime_flags::RuntimeFlags;
 pub use shared_memory::{num_words, MemoryGetter, SharedMemory, EMPTY_SHARED_MEMORY};
 use specification::hardfork::SpecId;
 pub use stack::{Stack, STACK_LIMIT};
-use std::{rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 use subroutine_stack::SubRoutineImpl;
 
 #[derive(Debug, Clone)]
