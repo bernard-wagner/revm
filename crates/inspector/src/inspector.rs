@@ -18,7 +18,7 @@ use revm::{
         table::CustomInstruction,
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, FrameInput, Host,
         Instruction, InstructionResult, Interpreter, InterpreterResult, InterpreterTypes,
-    }, precompile::PrecompileErrors, primitives::{Address, Log, U256}, state::EvmState, Context, DatabaseCommit, Error, Evm, EvmCommit
+    }, precompile::PrecompileErrors, primitives::{Address, Log, U256}, state::EvmState, Context, DatabaseCommit, Error, Evm, EvmCommit, JournaledState
 };
 
 /// EVM [Interpreter] callbacks.
@@ -246,8 +246,7 @@ where
         + CfgGetter
         + JournalExtGetter
         + Host
-        + InspectorCtx<IT = EthInterpreter>
-        + Send,
+        + InspectorCtx<IT = EthInterpreter>,
     ERROR: From<JournalDBError<CTX>> + From<PrecompileErrors>,
     PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
 {

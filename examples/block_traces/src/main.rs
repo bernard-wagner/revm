@@ -4,23 +4,20 @@
 use alloy_consensus::Transaction;
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_provider::{
-    network::primitives::{BlockTransactions, BlockTransactionsKind},
-    Provider, ProviderBuilder,
+    network::{primitives::{BlockTransactions, BlockTransactionsKind}, Ethereum},
+    Provider, ProviderBuilder, RootProvider,
 };
-use database::{AlloyDB, CacheDB, StateBuilder};
+use database::{AlloyDB, CacheDB, State, StateBuilder};
 use indicatif::ProgressBar;
 use inspector::{
     inspector_context::InspectorContext, inspectors::TracerEip3155, InspectorEthFrame,
     InspectorMainEvm,
 };
 use revm::{
-    database_interface::WrapDatabaseAsync,
-    handler::{
+    context::{BlockEnv, CfgEnv, TxEnv}, database_interface::WrapDatabaseAsync, handler::{
         EthExecution, EthHandler, EthPostExecution, EthPreExecution, EthPrecompileProvider,
         EthValidation,
-    },
-    primitives::TxKind,
-    Context, EvmCommit,
+    }, primitives::TxKind, Context, EvmCommit, JournaledState
 };
 use std::io::BufWriter;
 use std::io::Write;
@@ -99,11 +96,13 @@ async fn main() -> anyhow::Result<()> {
             c.chain_id = chain_id;
         });
 
+    let inspector_context = InspectorContext::new(
+        inner,
+        TracerEip3155::new(Box::new(stdout())),
+    );
+
     let mut evm = InspectorMainEvm::new(
-        InspectorContext::new(
-            inner,
-            TracerEip3155::new(Box::new(stdout())),
-        ),
+        inspector_context,
         EthHandler::new(
             EthValidation::new(),
             EthPreExecution::new(),

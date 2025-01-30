@@ -73,7 +73,7 @@ where
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION>
     EthFrame<CTX, ERROR, EthInterpreter<()>, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send,
+    CTX: EthFrameContext,
     ERROR: EthFrameError<CTX>,
     PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
 {
@@ -454,7 +454,7 @@ where
 impl<CTX, ERROR, PRECOMPILE, INSTRUCTION> Frame
     for EthFrame<CTX, ERROR, EthInterpreter<()>, PRECOMPILE, INSTRUCTION>
 where
-    CTX: EthFrameContext + Send,
+    CTX: EthFrameContext,
     ERROR: EthFrameError<CTX>,
     PRECOMPILE: PrecompileProvider<Context = CTX, Error = ERROR, Output = InterpreterResult>,
     INSTRUCTION: InstructionProvider<WIRE = EthInterpreter<()>, Host = CTX>,
