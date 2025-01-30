@@ -1,9 +1,7 @@
 use std::{
     cell::RefCell,
     cmp::min,
-    mem,
     rc::Rc,
-    sync::{Arc, Mutex},
 };
 
 use arbutil::evm::{

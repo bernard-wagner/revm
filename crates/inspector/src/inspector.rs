@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell,
     rc::Rc,
-    sync::{Arc, Mutex},
+    
 };
 
 use crate::{
@@ -12,9 +12,9 @@ use crate::{
 use auto_impl::auto_impl;
 use revm::{
     context_interface::{
-        block::BlockSetter, result::ExecutionResult, transaction::TransactionSetter, BlockGetter,
-        CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalDBError, JournalGetter,
-        PerformantContextAccess, TransactionGetter,
+        BlockGetter,
+        CfgGetter, ErrorGetter, Journal, JournalDBError, JournalGetter,
+        TransactionGetter,
     },
     database_interface::{Database, EmptyDB},
     handler::{
@@ -31,8 +31,7 @@ use revm::{
     },
     precompile::PrecompileErrors,
     primitives::{Address, Log, U256},
-    state::EvmState,
-    Context, DatabaseCommit, Error, Evm, EvmCommit, JournaledState,
+    Context, Error, Evm,
 };
 
 /// EVM [Interpreter] callbacks.

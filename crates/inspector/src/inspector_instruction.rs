@@ -14,7 +14,7 @@ use revm::{
 use std::{
     cell::RefCell,
     rc::Rc,
-    sync::{Arc, Mutex},
+    
 };
 
 use crate::{

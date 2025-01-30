@@ -1,6 +1,5 @@
 use core::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 
 use context_interface::{Cfg, CfgGetter};
 use handler_interface::PrecompileProvider;

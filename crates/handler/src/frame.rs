@@ -23,7 +23,7 @@ use specification::{
     hardfork::SpecId::{self, HOMESTEAD, LONDON, OSAKA, SPURIOUS_DRAGON},
 };
 use state::Bytecode;
-use std::{borrow::ToOwned, sync::Mutex};
+use std::borrow::ToOwned;
 use std::{rc::Rc, sync::Arc};
 
 pub struct EthFrame<CTX, ERROR, IW: InterpreterTypes, PRECOMPILE, INSTRUCTIONS> {

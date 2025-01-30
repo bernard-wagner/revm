@@ -627,7 +627,7 @@ where
                 if interpreter_result.result.is_ok() {
                     context.journal().checkpoint_commit();
                 } else {
-                    context.journal().checkpoint_revert(self.checkpoint.clone());
+                    context.journal().checkpoint_revert(self.checkpoint);
                 }
                 FrameOrResultGen::Result(FrameResult::Call(CallOutcome::new(
                     interpreter_result,

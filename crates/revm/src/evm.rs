@@ -205,7 +205,7 @@ where
         let initial_gas_spend = self
             .handler
             .validation()
-            .validate_initial_tx_gas(&mut self.context.borrow_mut());
+            .validate_initial_tx_gas(&self.context.borrow());
 
         let initial_gas_spend = initial_gas_spend.inspect_err(|_| {
             self.clear();
@@ -224,11 +224,11 @@ where
     fn preverify_transaction_inner(&mut self) -> Result<InitialAndFloorGas, ERROR> {
         self.handler
             .validation()
-            .validate_env(&mut self.context.borrow_mut())?;
+            .validate_env(&self.context.borrow())?;
         let initial_gas_spend = self
             .handler
             .validation()
-            .validate_initial_tx_gas(&mut self.context.borrow_mut())?;
+            .validate_initial_tx_gas(&self.context.borrow())?;
         self.handler
             .validation()
             .validate_tx_against_state(&mut self.context.borrow_mut())?;

@@ -16,7 +16,7 @@ use specification::hardfork::SpecId;
 use std::{
     boxed::Box,
     rc::Rc,
-    sync::{Arc, Mutex},
+    
 };
 
 #[derive(Default)]

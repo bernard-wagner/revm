@@ -1,8 +1,6 @@
 use std::{
-    any::Any,
     cell::RefCell,
     rc::Rc,
-    sync::{Arc, Mutex},
 };
 
 use alloy_primitives::{keccak256, Bytes, U256, U64};
@@ -16,7 +14,7 @@ use arbutil::{
     Bytes20, Bytes32,
 };
 use revm::{
-    context::{BlockEnv, Cfg, CfgEnv, TxEnv},
+    context::Cfg,
     context_interface::{Block, BlockGetter, CfgGetter, Transaction, TransactionGetter},
     interpreter::{Gas as RevmGas, Host, InputsImpl, InterpreterAction, InterpreterResult},
 };

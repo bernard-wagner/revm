@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 use revm::context_interface::{BlockGetter, CfgGetter};

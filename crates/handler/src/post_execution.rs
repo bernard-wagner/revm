@@ -11,7 +11,7 @@ use specification::hardfork::SpecId;
 use state::EvmState;
 use std::{
     boxed::Box,
-    sync::{Arc, Mutex},
+    
     vec::Vec,
 };
 

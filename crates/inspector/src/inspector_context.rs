@@ -11,7 +11,6 @@ use revm::{
         SelfDestructResult, StateLoad,
     },
     primitives::{Address, Bytes, Log, B256, U256},
-    JournaledState,
 };
 use std::vec::Vec;
 
