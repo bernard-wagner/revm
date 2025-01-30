@@ -594,7 +594,7 @@ where
             move |context: Rc<RefCell<CTX>>, call_inputs: FrameInput| -> FrameResult {
                 ArbOsFrame::run_recursive(
                     call_inputs,
-                    context,
+                    context.clone(),
                     depth,
                     memory.clone(),
                     precompiles.clone(),

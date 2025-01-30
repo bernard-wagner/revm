@@ -60,14 +60,13 @@ impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
         req_type: EvmApiMethod,
         req_data: impl AsRef<[u8]>,
     ) -> (Vec<u8>, VecReader, Gas) {
-        let mut api = self.api.borrow_mut();
-        let spec = api.cfg().spec().into();
+        let spec = self.api.borrow_mut().cfg().spec().into();
         let mut data = req_data.as_ref().to_vec();
 
         match req_type {
             EvmApiMethod::GetBytes32 => {
                 let slot = revm_types::take_u256(&mut data);
-                if let Some(result) = api.sload(self.address, slot) {
+                if let Some(result) = self.api.borrow_mut().sload(self.address, slot) {
                     let gas = sload_cost(spec, result.is_cold);
                     (result.to_be_bytes_vec(), VecReader::new(vec![]), Gas(gas))
                 } else {
@@ -90,7 +89,7 @@ impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
                     let key = revm_types::take_u256(&mut data);
                     let value = revm_types::take_u256(&mut data);
 
-                    if let Some(result) = api.sstore(self.address, key, value) {
+                    if let Some(result) = self.api.borrow_mut().sstore(self.address, key, value) {
                         total_cost += sstore_cost(spec, &result.data, result.is_cold);
                         if gas_left < total_cost {
                             return (
@@ -117,7 +116,7 @@ impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
 
             EvmApiMethod::GetTransientBytes32 => {
                 let slot = revm_types::take_u256(&mut data);
-                let result = api.tload(self.address, slot);
+                let result = self.api.borrow_mut().tload(self.address, slot);
                 (result.to_be_bytes_vec(), VecReader::new(vec![]), Gas(0))
             }
 
@@ -131,7 +130,7 @@ impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
                 }
                 let key = revm_types::take_u256(&mut data);
                 let value = revm_types::take_u256(&mut data);
-                api.tstore(self.address, key, value);
+                self.api.borrow_mut().tstore(self.address, key, value);
                 (Status::Success.into(), VecReader::new(vec![]), Gas(0))
             }
 
@@ -150,7 +149,7 @@ impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
                     );
                 }
 
-                let Some(account_load) = api.load_account_delegated(address) else {
+                let Some(account_load) = self.api.borrow_mut().load_account_delegated(address) else {
                     return (
                         Status::Failure.into(),
                         VecReader::new(vec![]),
@@ -227,7 +226,7 @@ impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
 
                 if len != 0 {
                     if spec.is_enabled_in(revm::specification::hardfork::SpecId::SHANGHAI) {
-                        let max_initcode_size = api.cfg().max_code_size().saturating_mul(2);
+                        let max_initcode_size = self.api.borrow_mut().cfg().max_code_size().saturating_mul(2);
                         if len > max_initcode_size {
                             return (
                                 Status::Failure.into(),
@@ -334,27 +333,27 @@ impl<CTX: Host + 'static> RequestHandler<VecReader> for StylusHandler<CTX> {
                     topics.push(revm_types::take_bytes32(&mut data));
                 }
                 let data = revm_types::take_rest(&mut data);
-                api.log(Log::new_unchecked(self.address, topics, data));
+                self.api.borrow_mut().log(Log::new_unchecked(self.address, topics, data));
                 (vec![], VecReader::new(vec![]), Gas(0))
             }
 
             EvmApiMethod::AccountBalance => {
                 let address = revm_types::take_address(&mut data);
-                let balance = api.balance(address).unwrap();
+                let balance = self.api.borrow_mut().balance(address).unwrap();
                 let gas = self.wasm_account_touch(balance.is_cold, false);
                 (balance.to_be_bytes_vec(), VecReader::new(vec![]), Gas(gas))
             }
 
             EvmApiMethod::AccountCode => {
                 let address = revm_types::take_address(&mut data);
-                let code = api.code(address).unwrap();
+                let code = self.api.borrow_mut().code(address).unwrap();
                 let gas = self.wasm_account_touch(code.is_cold, true);
                 (vec![], VecReader::new(code.to_vec()), Gas(gas))
             }
 
             EvmApiMethod::AccountCodeHash => {
                 let address = revm_types::take_address(&mut data);
-                let code_hash = api.code_hash(address).unwrap();
+                let code_hash = self.api.borrow_mut().code_hash(address).unwrap();
                 let gas = self.wasm_account_touch(code_hash.is_cold, false);
                 (code_hash.to_vec(), VecReader::new(vec![]), Gas(gas))
             }

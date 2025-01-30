@@ -106,21 +106,6 @@ async fn main() -> anyhow::Result<()> {
     //     tx.kind = TxKind::Call(stylus_address);
     // });
 
-    // evm.context.modify_tx(|tx| {
-    //     tx.data = forwardToCall::new((
-    //         solidity_address,
-    //         forwardToCall::new((
-    //             stylus_address,
-    //             setNumberCall::new((U256::from(param),)).abi_encode().into(),
-    //         ))
-    //         .abi_encode()
-    //         .into(),
-    //     ))
-    //     .abi_encode()
-    //     .into();
-    //     tx.kind = TxKind::Call(stylus_address);
-    // });
-
     evm.context.borrow_mut().modify_tx(|tx| {
         tx.data = forwardToCall::new((
             solidity_address,
@@ -133,8 +118,23 @@ async fn main() -> anyhow::Result<()> {
         ))
         .abi_encode()
         .into();
-        tx.kind = TxKind::Call(solidity_address);
+        tx.kind = TxKind::Call(stylus_address);
     });
+
+    // evm.context.borrow_mut().modify_tx(|tx| {
+    //     tx.data = forwardToCall::new((
+    //         solidity_address,
+    //         forwardToCall::new((
+    //             stylus_address,
+    //             setNumberCall::new((U256::from(param),)).abi_encode().into(),
+    //         ))
+    //         .abi_encode()
+    //         .into(),
+    //     ))
+    //     .abi_encode()
+    //     .into();
+    //     tx.kind = TxKind::Call(solidity_address);
+    // });
 
     let result = evm.transact()?;
 
