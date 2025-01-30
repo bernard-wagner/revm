@@ -22,7 +22,7 @@ rust_2018_idioms = "deny"
 all = "warn"
 
 [dependencies]
-revm.workspace = true
+revm = { workspace = true, features = ["std"] }
 database = { workspace = true, features = ["std", "alloydb"] }
 inspector = { workspace = true, features = ["std", "serde-json"] }
 

@@ -124,7 +124,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     for tx in transactions {
-        evm.context.inner.modify_tx(|etx| {
+        evm.context.try_lock().unwrap().inner.modify_tx(|etx| {
             etx.caller = tx.from;
             etx.gas_limit = tx.gas_limit();
             etx.gas_price = tx.gas_price().unwrap_or(tx.inner.max_fee_per_gas());
@@ -160,7 +160,7 @@ async fn main() -> anyhow::Result<()> {
         let writer = FlushWriter::new(Arc::clone(&inner));
 
         // Inspect and commit the transaction to the EVM
-        evm.context.inspector.set_writer(Box::new(writer));
+        evm.context.try_lock().unwrap().inspector.set_writer(Box::new(writer));
 
         let res = evm.exec_commit();
 
