@@ -3966,7 +3966,6 @@ dependencies = [
  "alloy-eip2930",
  "alloy-eip7702 0.5.0",
  "alloy-primitives",
- "arbutil",
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
@@ -3977,7 +3976,6 @@ dependencies = [
  "hex",
  "kzg-rs",
  "serde",
- "stylus",
 ]
 
 [[package]]

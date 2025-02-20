@@ -7,9 +7,9 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc as std;
 
+mod arbos;
 mod bytecode;
 mod constants;
-mod arbos;
 
 pub mod db;
 pub mod eip7702;

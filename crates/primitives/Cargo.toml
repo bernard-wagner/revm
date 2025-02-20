@@ -32,9 +32,6 @@ alloy-primitives = { version = "0.8", default-features = false, features = [
     "map",
 ] }
 
-arbutil = { path = "../../../nitro/arbitrator/arbutil" }
-stylus = { path = "../../../nitro/arbitrator/stylus" }
-
 # mics
 auto_impl = "1.2"
 bitvec = { version = "1", default-features = false, features = ["alloc"] }

@@ -1,4 +1,4 @@
-use revm_interpreter::{gas::InitialAndFloorGas, CallScheme, CallValue};
+use revm_interpreter::gas::InitialAndFloorGas;
 
 use crate::{
     arbos,

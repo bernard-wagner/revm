@@ -1,4 +1,3 @@
-
 use alloy_sol_types::{sol, SolEvent, SolValue};
 
 use revm::db::{CacheDB, EmptyDB};
@@ -16,7 +15,7 @@ sol! {
 #[test]
 pub fn emit_logs() {
     let mut db = CacheDB::new(EmptyDB::new());
-   
+
     let deployer = address!("Bd770416a3345F91E4B34576cb804a576fa48EB1");
 
     let deployed_address = common::deploy_wasm(&mut db, LOGS_BYTECODE.to_vec(), deployer);
@@ -27,14 +26,12 @@ pub fn emit_logs() {
         some_data: revm_precompile::Bytes::from("0xdeadbeef"),
     };
 
-
     let expected = expected_log.clone().into_log_data();
 
     let mut data: Vec<u8> = vec![];
-    data.extend([expected.topics().len() as u8]); 
+    data.extend([expected.topics().len() as u8]);
     data.extend(expected.topics().abi_encode_packed());
     data.extend(expected.data);
-    
 
     let mut evm = revm::Evm::builder()
         .with_db(db)
@@ -42,9 +39,8 @@ pub fn emit_logs() {
             tx.caller = deployer;
             tx.transact_to = TxKind::Call(deployed_address);
             tx.data = data.into();
-        }
-    )
-    .build();
+        })
+        .build();
 
     let result = evm.transact().unwrap();
 

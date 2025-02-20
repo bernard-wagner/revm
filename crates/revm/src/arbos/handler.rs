@@ -1,14 +1,10 @@
-use core::cell::RefCell;
-use std::{
-    cmp::min,
-    rc::Rc, sync::Arc,
-};
+use std::{cmp::min, sync::Arc};
 
 use arbutil::evm::{
     api::{EvmApiMethod, Gas, VecReader},
     req::RequestHandler,
 };
-use revm_interpreter::{gas::CALL_STIPEND, CreateInputs};
+use revm_interpreter::CreateInputs;
 
 use crate::{
     primitives::{Address, Bytecode, Bytes, SpecId, U256},
@@ -40,6 +36,7 @@ pub(crate) struct StylusFrameInputs {
     pub caller: Address,
     /// Value send to contract from transaction or from CALL opcodes.
     pub call_value: U256,
+    /// If the call is static.
     pub is_static: bool,
     /// The gas state.
     pub gas_limit: u64,
@@ -120,32 +117,35 @@ pub(crate) fn request<EXT, DB: Database>(
 
             let mut total_cost = 0;
             while !data.is_empty() {
-                let key = buffer::take_u256(&mut data);
-                let value = buffer::take_u256(&mut data);
+                let (key, value) = (buffer::take_u256(&mut data), buffer::take_u256(&mut data));
 
-                if let Some(result) = context.sstore(inputs.target_address, key, value) {
-                    total_cost += sstore_cost(
-                        context.evm.spec_id(),
-                        &result.data,
-                        CALL_STIPEND + 1,
-                        result.is_cold,
-                    )
-                    .unwrap();
-                    if gas_left < total_cost {
+                match context.sstore(inputs.target_address, key, value) {
+                    Some(result) => {
+                        total_cost += sstore_cost(
+                            context.evm.spec_id(),
+                            &result.data,
+                            gas_left,
+                            result.is_cold,
+                        )
+                        .unwrap();
+                        if gas_left < total_cost {
+                            return (
+                                Status::OutOfGas.into(),
+                                VecReader::new(vec![]),
+                                Gas(gas_left),
+                            );
+                        }
+                    }
+                    None => {
                         return (
-                            Status::OutOfGas.into(),
+                            Status::Failure.into(),
                             VecReader::new(vec![]),
                             Gas(gas_left),
-                        );
+                        )
                     }
-                } else {
-                    return (
-                        Status::Failure.into(),
-                        VecReader::new(vec![]),
-                        Gas(gas_left),
-                    );
                 }
             }
+
             (
                 Status::Success.into(),
                 VecReader::new(vec![]),
@@ -179,12 +179,14 @@ pub(crate) fn request<EXT, DB: Database>(
             let gas_left = buffer::take_u64(&mut data);
             let gas_limit = buffer::take_u64(&mut data);
             let calldata = buffer::take_rest(&mut data);
-            
+
             let is_static = matches!(req_type, EvmApiMethod::StaticCall) || inputs.is_static;
-            let target_address = matches!(req_type, EvmApiMethod::DelegateCall)
-                .then(|| inputs.target_address)
-                .unwrap_or(bytecode_address);
-            
+            let target_address = if matches!(req_type, EvmApiMethod::DelegateCall) {
+                inputs.target_address
+            } else {
+                bytecode_address
+            };
+
             if is_static && !value.is_zero() {
                 return (
                     Status::WriteProtection.into(),
@@ -199,26 +201,24 @@ pub(crate) fn request<EXT, DB: Database>(
                 gas_limit
             };
 
-            let inputs = CallInputs {
-                input: calldata,
-                return_memory_offset: 0..0,
-                gas_limit,
-                bytecode_address,
-                target_address,
-                caller: inputs.caller,
-                value: crate::interpreter::CallValue::Transfer(value),
-                scheme: crate::interpreter::CallScheme::Call,
-                is_static,
-                is_eof: false,
-            };
-
-            let first_frame_or_result = handler.execution().call(context, Box::new(inputs));
-
             let mut gas = RevmGas::new(gas_limit);
             gas.spend_all();
 
-            // Starts the main running loop.
-            let result = match first_frame_or_result {
+            let result = match handler.execution().call(
+                context,
+                Box::new(CallInputs {
+                    input: calldata,
+                    return_memory_offset: 0..0,
+                    gas_limit,
+                    bytecode_address,
+                    target_address,
+                    caller: inputs.caller,
+                    value: crate::interpreter::CallValue::Transfer(value),
+                    scheme: crate::interpreter::CallScheme::Call,
+                    is_static,
+                    is_eof: false,
+                }),
+            ) {
                 Ok(FrameOrResult::Frame(first_frame)) => {
                     Evm::run_the_loop(context, handler, first_frame)
                 }
@@ -233,16 +233,16 @@ pub(crate) fn request<EXT, DB: Database>(
                 }
             };
 
-
-            if let Ok(FrameResult::Call(result)) = result {
-                gas.erase_cost(result.gas().remaining());
-                (
-                    Status::Success.into(),
-                    VecReader::new(result.result.output.to_vec()),
-                    Gas(gas.spent()),
-                )
-            } else {
-                (vec![], VecReader::new(vec![]), Gas(gas.spent()))
+            match result {
+                Ok(FrameResult::Call(result)) => {
+                    gas.erase_cost(result.gas().remaining());
+                    (
+                        Status::Success.into(),
+                        VecReader::new(result.result.output.to_vec()),
+                        Gas(gas.spent()),
+                    )
+                }
+                _ => (vec![], VecReader::new(vec![]), Gas(gas.spent())),
             }
         }
 
@@ -255,14 +255,14 @@ pub(crate) fn request<EXT, DB: Database>(
 
             if inputs.is_static {
                 return (
-                    vec![vec![0x00], "write protection".as_bytes().to_vec()].concat(),
+                    [vec![0x00], "write protection".as_bytes().to_vec()].concat(),
                     VecReader::new(vec![]),
                     Gas(0),
                 );
             }
 
             let error_response = (
-                vec![vec![0x01], Address::ZERO.to_vec()].concat(),
+                [vec![0x01], Address::ZERO.to_vec()].concat(),
                 VecReader::new(vec![]),
                 Gas(gas_remaining),
             );
@@ -274,15 +274,12 @@ pub(crate) fn request<EXT, DB: Database>(
             let mut gas_cost = 0;
             let len = init_code.len();
 
-            if len != 0 {
-                if context.evm.spec_id().is_enabled_in(SpecId::SHANGHAI) {
-                    let max_initcode_size = context.env().cfg.max_code_size().saturating_mul(2);
-                    if len > max_initcode_size {
-                        return error_response;
-                    }
-                    gas_cost = revm_interpreter::gas::initcode_cost(len as u64);
+            if len != 0 && context.evm.spec_id().is_enabled_in(SpecId::SHANGHAI) {
+                let max_initcode_size = context.env().cfg.max_code_size().saturating_mul(2);
+                if len > max_initcode_size {
+                    return error_response;
                 }
-                // gas_cost += revm_interpreter::gas::memory_gas(interpreter::num_words(len as u64));
+                gas_cost = revm_interpreter::gas::initcode_cost(len as u64);
             }
 
             let scheme = if is_create_2 {
@@ -303,14 +300,14 @@ pub(crate) fn request<EXT, DB: Database>(
 
             if gas_remaining < gas_cost {
                 return (
-                    vec![vec![0x00], "out of gas".as_bytes().to_vec()].concat(),
+                    [vec![0x00], "out of gas".as_bytes().to_vec()].concat(),
                     VecReader::new(vec![]),
                     Gas(gas_remaining),
                 );
             }
 
             let mut gas_limit = gas_remaining - gas_cost;
-            
+
             let gas_stipend = if context.evm.spec_id().is_enabled_in(SpecId::TANGERINE) {
                 gas_limit / 64
             } else {
@@ -318,7 +315,7 @@ pub(crate) fn request<EXT, DB: Database>(
             };
 
             gas_limit = gas_limit.saturating_sub(gas_stipend);
-                      
+
             let result = handler.execution().create(
                 context,
                 Box::new(CreateInputs {
@@ -332,44 +329,43 @@ pub(crate) fn request<EXT, DB: Database>(
 
             // Starts the main running loop.
             let frame_or_return = match result {
-                Ok(FrameOrResult::Frame(first_frame)) => {                   
+                Ok(FrameOrResult::Frame(first_frame)) => {
                     Evm::run_the_loop(context, handler, first_frame)
                 }
-                Ok(FrameOrResult::Result(result)) => {
-                    Ok(result)
-                }
+                Ok(FrameOrResult::Result(result)) => Ok(result),
                 Err(e) => {
                     context.evm.error = Err(e);
                     return error_response;
                 }
             };
 
-
             let mut gas = RevmGas::new(gas_remaining);
             gas.spend_all();
-           //gas.erase_cost(gas_stipend);
 
-            if let Ok(FrameResult::Create(create_outcome)) = frame_or_return { 
+            if let Ok(FrameResult::Create(create_outcome)) = frame_or_return {
                 gas.erase_cost(create_outcome.gas().remaining());
 
-                if matches!(create_outcome.instruction_result(), interpreter::InstructionResult::Revert) {
+                if matches!(
+                    create_outcome.instruction_result(),
+                    interpreter::InstructionResult::Revert
+                ) {
                     return (
-                        vec![vec![0x00], create_outcome.output().to_vec()].concat(),
+                        [vec![0x00], create_outcome.output().to_vec()].concat(),
                         VecReader::new(vec![]),
                         Gas(gas.spent()),
                     );
-                } 
+                }
 
-                if let Some(address) = create_outcome.address {                   
+                if let Some(address) = create_outcome.address {
                     return (
                         [vec![0x01], address.to_vec()].concat(),
                         VecReader::new(vec![]),
                         Gas(gas.spent()),
                     );
-                }               
+                }
             }
-            
-            return (
+
+            (
                 [vec![0x01], Address::ZERO.to_vec()].concat(),
                 VecReader::new(vec![]),
                 Gas(gas.spent()),

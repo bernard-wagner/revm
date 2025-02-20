@@ -338,7 +338,10 @@ impl<DB: Database> InnerEvmContext<DB> {
         // if ok, check contract creation limit and calculate gas deduction on output len.
         //
         // EIP-3541: Reject new contract code starting with the 0xEF byte
-        if SPEC::enabled(LONDON) && interpreter_result.output.first() == Some(&0xEF) && !interpreter_result.output.starts_with(STYLUS_MAGIC_BYTES) {
+        if SPEC::enabled(LONDON)
+            && interpreter_result.output.first() == Some(&0xEF)
+            && !interpreter_result.output.starts_with(STYLUS_MAGIC_BYTES)
+        {
             self.journaled_state.checkpoint_revert(journal_checkpoint);
             interpreter_result.result = InstructionResult::CreateContractStartingWithEF;
             return;

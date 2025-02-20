@@ -52,11 +52,14 @@ impl TestSetup {
         // Deploy contracts
         let multicall = common::deploy_wasm(&mut db, MULTICALL_BYTECODE.to_vec(), deployer);
         let storage = common::deploy_wasm(&mut db, STORAGE_BYTECODE.to_vec(), deployer);
-        
+
         // Initialize storage
         let slot = keccak256("some-storage-slot");
         let value = keccak256("some-storage-data");
-        db.load_account(storage).unwrap().storage.insert(slot.into(), value.into());
+        db.load_account(storage)
+            .unwrap()
+            .storage
+            .insert(slot.into(), value.into());
 
         // Deploy EVM version
         let artifact: Value = serde_json::from_str(MULTICALL_EVM_ARTIFACT).unwrap();
@@ -72,44 +75,61 @@ impl TestSetup {
         }
     }
 
-    fn prepare_storage_call(&self, op: StorageOperation, slot: &str, data: Option<&str>) -> Vec<u8> {
+    fn prepare_storage_call(
+        &self,
+        op: StorageOperation,
+        slot: &str,
+        data: Option<&str>,
+    ) -> Vec<u8> {
         let mut calldata = vec![op as u8];
         calldata.extend(keccak256(slot).to_vec());
-        
+
         calldata.extend(keccak256(data.unwrap_or_default()).to_vec());
-        
+
         calldata
     }
 
-    fn prepare_multicall(&self, op: CallOperation, to: Address, value: Option<U256>, data: Vec<u8>) -> Vec<u8> {
+    fn prepare_multicall(
+        &self,
+        op: CallOperation,
+        to: Address,
+        value: Option<U256>,
+        data: Vec<u8>,
+    ) -> Vec<u8> {
         let mut call_data = vec![op as u8];
-        
+
         if let CallOperation::Call = op {
             call_data.extend(value.unwrap_or_default().to_be_bytes_vec());
         }
-        
+
         call_data.extend(to.to_vec());
         call_data.extend(data);
 
         let mut final_data = vec![0x01]; // Single call
         final_data.extend(U256::from(call_data.len()).to_be_bytes_vec()[28..].to_vec());
         final_data.extend(call_data);
-        
+
         final_data
     }
 
-    fn prepare_multicall_evm(&self, op: CallOperation, to: Address, value: Option<U256>, data: Vec<u8>) -> Vec<u8> {
+    fn prepare_multicall_evm(
+        &self,
+        op: CallOperation,
+        to: Address,
+        value: Option<U256>,
+        data: Vec<u8>,
+    ) -> Vec<u8> {
         let mut call_data = vec![];
         match op {
             CallOperation::Call => call_data.push(opcode::CALL),
             CallOperation::DelegateCall => call_data.push(opcode::DELEGATECALL),
             CallOperation::StaticCall => call_data.push(opcode::STATICCALL),
         }
-        
+
         if let CallOperation::Call = op {
             call_data.extend(value.unwrap_or_default().to_be_bytes_vec());
         }
-        
+
         call_data.extend(to.to_vec());
         call_data.extend(data);
 
@@ -126,9 +146,9 @@ impl TestSetup {
                 tx.gas_limit = 1_000_000_000;
             })
             .build();
-        
+
         let tx = evm.transact().unwrap();
-        
+
         tx.result
     }
 
@@ -154,15 +174,12 @@ mod tests {
     #[test]
     fn test_direct_storage_read() {
         let mut setup = TestSetup::new();
-        
-        let call_data = setup.prepare_storage_call(
-            StorageOperation::Read,
-            "some-storage-slot",
-            None
-        );
-        
+
+        let call_data =
+            setup.prepare_storage_call(StorageOperation::Read, "some-storage-slot", None);
+
         let result = setup.execute(setup.storage, call_data);
-        
+
         assert!(result.is_success());
         assert_eq!(
             result.output().unwrap().to_vec(),
@@ -173,22 +190,15 @@ mod tests {
     #[test]
     fn test_multicall_storage_read() {
         let mut setup = TestSetup::new();
-        
-        let storage_call = setup.prepare_storage_call(
-            StorageOperation::Read,
-            "some-storage-slot",
-            None
-        );
-        
-        let multicall = setup.prepare_multicall(
-            CallOperation::Call,
-            setup.storage,
-            None,
-            storage_call
-        );
-        
+
+        let storage_call =
+            setup.prepare_storage_call(StorageOperation::Read, "some-storage-slot", None);
+
+        let multicall =
+            setup.prepare_multicall(CallOperation::Call, setup.storage, None, storage_call);
+
         let result = setup.execute(setup.multicall, multicall);
-        
+
         assert!(result.is_success());
         assert_eq!(
             result.output().unwrap().to_vec(),
@@ -199,30 +209,27 @@ mod tests {
     #[test]
     fn test_multicall_storage_write() {
         let mut setup = TestSetup::new();
-        
+
         let storage_call = setup.prepare_storage_call(
             StorageOperation::Write,
             "some-storage-slot",
-            Some("new-storage-value")
+            Some("new-storage-value"),
         );
-        
-        let multicall = setup.prepare_multicall(
-            CallOperation::Call,
-            setup.storage,
-            None,
-            storage_call
-        );
-        
+
+        let multicall =
+            setup.prepare_multicall(CallOperation::Call, setup.storage, None, storage_call);
+
         setup.execute_commit(setup.multicall, multicall);
-        
+
         let slot = keccak256("some-storage-slot");
-        let stored_value = setup.db
+        let stored_value = setup
+            .db
             .load_account(setup.storage)
             .unwrap()
             .storage
             .get(&slot.into())
             .unwrap();
-        
+
         assert_eq!(
             stored_value.to_be_bytes_vec(),
             keccak256("new-storage-value").to_vec()
@@ -232,53 +239,47 @@ mod tests {
     #[test]
     fn test_static_call_write_protection() {
         let mut setup = TestSetup::new();
-        
+
         let storage_call = setup.prepare_storage_call(
             StorageOperation::Write,
             "some-storage-slot",
-            Some("new-storage-value")
+            Some("new-storage-value"),
         );
-        
-        let multicall = setup.prepare_multicall(
-            CallOperation::StaticCall,
-            setup.storage,
-            None,
-            storage_call
-        );
-        
+
+        let multicall =
+            setup.prepare_multicall(CallOperation::StaticCall, setup.storage, None, storage_call);
+
         let result = setup.execute_commit(setup.multicall, multicall);
         let output = String::from_utf8_lossy(result.output().unwrap());
-        
+
         assert!(output.contains("WriteProtection"));
     }
 
     #[test]
     fn test_delegatecall_storage_context() {
         let mut setup = TestSetup::new();
-        
+
         // Set up multicall contract storage
         let slot = keccak256("some-storage-slot");
-        setup.db
+        setup
+            .db
             .load_account(setup.multicall)
             .unwrap()
             .storage
             .insert(slot.into(), keccak256("multicall-storage-value").into());
-        
-        let storage_call = setup.prepare_storage_call(
-            StorageOperation::Read,
-            "some-storage-slot",
-            None
-        );
-        
+
+        let storage_call =
+            setup.prepare_storage_call(StorageOperation::Read, "some-storage-slot", None);
+
         let multicall = setup.prepare_multicall(
             CallOperation::DelegateCall,
             setup.storage,
             None,
-            storage_call
+            storage_call,
         );
-        
+
         let result = setup.execute_commit(setup.multicall, multicall);
-        
+
         assert!(result.is_success());
         assert_eq!(
             result.output().unwrap().to_vec(),
@@ -291,24 +292,24 @@ mod tests {
     //     let mut setup = TestSetup::new();
 
     //     let slot = keccak256("some-storage-slot");
-        
+
     //     let storage_call = setup.prepare_storage_call_evm(
     //         StorageOperation::Write,
     //         "some-storage-slot",
     //         Some("new-storage-value")
     //     );
-        
+
     //     let multicall = setup.prepare_multicall(
     //         CallOperation::Call,
     //         setup.multicall_evm,
     //         None,
     //         storage_call
     //     );
-        
+
     //     let result = setup.execute(setup.multicall, multicall);
 
     //     println!("{:?}", result);
-        
+
     //     assert!(result.is_success());
     //     let stored_value = setup.db
     //     .load_account(setup.multicall_evm)
@@ -316,7 +317,7 @@ mod tests {
     //     .storage
     //     .get(&slot.into())
     //     .unwrap();
-    
+
     //     assert_eq!(
     //         stored_value.to_be_bytes_vec(),
     //         keccak256("new-storage-value").to_vec()

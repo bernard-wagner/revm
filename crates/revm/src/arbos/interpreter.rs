@@ -1,8 +1,5 @@
-use core::{cell::RefCell, mem};
-use std::{
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use core::mem;
+use std::sync::{Arc, Mutex};
 
 use arbutil::{
     evm::{
@@ -30,7 +27,8 @@ use crate::{
 
 use super::handler::{StylusFrameInputs, StylusHandler};
 
-type EvmApiHandler<'a> = Arc<Box<dyn Fn(EvmApiMethod, Vec<u8>) -> (Vec<u8>, VecReader, arbutil::evm::api::Gas) +'a>>;
+type EvmApiHandler<'a> =
+    Arc<Box<dyn Fn(EvmApiMethod, Vec<u8>) -> (Vec<u8>, VecReader, arbutil::evm::api::Gas) + 'a>>;
 
 pub static STYLUS_MAGIC_BYTES: &[u8] = &[0xEF, 0xF0, 0x00, 0x00];
 
@@ -70,7 +68,11 @@ impl StylusInterpreter {
 
         let arbos_cfg = context.env().cfg.arbos_env.clone().unwrap_or_default();
         let compile_config = CompileConfig::version(arbos_cfg.stylus_version, arbos_cfg.debug_mode);
-        let stylus_config = StylusConfig::new(arbos_cfg.stylus_version, arbos_cfg.max_depth, arbos_cfg.ink_price);
+        let stylus_config = StylusConfig::new(
+            arbos_cfg.stylus_version,
+            arbos_cfg.max_depth,
+            arbos_cfg.ink_price,
+        );
 
         // Convert the mutable reference into an Arc<Mutex<Context>>
         let context = Arc::new(Mutex::new(context));
@@ -83,8 +85,8 @@ impl StylusInterpreter {
             let inputs = self.inputs.clone();
 
             move |req_type: arbutil::evm::api::EvmApiMethod,
-                    req_data: Vec<u8>|
-                    -> (Vec<u8>, VecReader, arbutil::evm::api::Gas) {
+                  req_data: Vec<u8>|
+                  -> (Vec<u8>, VecReader, arbutil::evm::api::Gas) {
                 let mut ctx = context.lock().unwrap(); // Lock the mutex to mutate
                 let handler = handler.lock().unwrap(); // Lock the mutex to mutate
                 super::handler::request(*ctx, *handler, inputs.clone(), req_type, req_data)
@@ -119,7 +121,7 @@ impl StylusInterpreter {
             Err(e) | Ok(UserOutcome::Failure(e)) => UserOutcome::Failure(e.wrap_err("call failed")),
             Ok(outcome) => outcome,
         };
-        
+
         let mut gas_left = stylus_config
             .pricing
             .ink_to_gas(instance.ink_left().into())
@@ -153,10 +155,28 @@ impl StylusInterpreter {
         // find target_address in context.evm.journaled_state.call_stack excluding last
         // if found, set reentrant to true
         // else set reentrant to false
-        let reentrant = if context.evm.journaled_state.call_stack.iter().filter(|&x| *x == self.inputs.target_address).count() > 1 { 1 } else { 0 };
+        let reentrant = if context
+            .evm
+            .journaled_state
+            .call_stack
+            .iter()
+            .filter(|&x| *x == self.inputs.target_address)
+            .count()
+            > 1
+        {
+            1
+        } else {
+            0
+        };
 
         let evm_data: EvmData = EvmData {
-            arbos_version: context.env().cfg.arbos_env.clone().unwrap_or_default().arbos_version as u64,
+            arbos_version: context
+                .env()
+                .cfg
+                .arbos_env
+                .clone()
+                .unwrap_or_default()
+                .arbos_version as u64,
             block_basefee: Bytes32::from(U256::from(context.env().block.basefee).to_be_bytes()),
             chainid: context.env().cfg.chain_id,
             block_coinbase: Bytes20::try_from(context.env().block.coinbase.as_slice()).unwrap(),
