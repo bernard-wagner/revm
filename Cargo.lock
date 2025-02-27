@@ -575,6 +575,7 @@ dependencies = [
 [[package]]
 name = "arbutil"
 version = "0.1.0"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "digest 0.10.7",
  "eyre",
@@ -950,6 +951,7 @@ dependencies = [
 [[package]]
 name = "brotli"
 version = "0.1.0"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "lazy_static",
  "num_enum",
@@ -1024,6 +1026,7 @@ dependencies = [
 [[package]]
 name = "caller-env"
 version = "0.1.0"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "brotli",
  "num_enum",
@@ -2001,6 +2004,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "forward"
+version = "0.1.0"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
+dependencies = [
+ "eyre",
+ "structopt",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2762,9 +2774,6 @@ name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
-dependencies = [
- "spin 0.9.8",
-]
 
 [[package]]
 name = "leb128"
@@ -3579,6 +3588,7 @@ dependencies = [
 [[package]]
 name = "prover"
 version = "0.1.0"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "arbutil",
  "bincode",
@@ -3590,6 +3600,7 @@ dependencies = [
  "enum-iterator 2.1.0",
  "eyre",
  "fnv",
+ "forward",
  "hex",
  "itertools 0.10.5",
  "lazy_static",
@@ -4877,6 +4888,7 @@ dependencies = [
 [[package]]
 name = "stylus"
 version = "0.1.0"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "arbutil",
  "bincode",
@@ -4904,12 +4916,10 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b5bbfa79abbae15dd642ea8176a21a635ff3c00059961d1ea27ad04e5b441c"
+source = "git+https://github.com/bernard-wagner/paritytech-bn?branch=no-lazy-static#66acb355513a08314cc33a3ffba4dbdf169c6f22"
 dependencies = [
  "byteorder",
  "crunchy",
- "lazy_static",
  "rand",
  "rustc-hex",
 ]
@@ -5486,6 +5496,7 @@ dependencies = [
 [[package]]
 name = "user-host-trait"
 version = "0.1.0"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "arbutil",
  "caller-env",
@@ -5502,9 +5513,9 @@ checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "uuid"
-version = "1.12.1"
+version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3758f5e68192bb96cc8f9b7e2c2cfdabb435499a28499a42f8f984092adad4b"
+checksum = "e0f540e3240398cce6128b64ba83fdbdd86129c16a3aa1a3a252efd66eb3d587"
 
 [[package]]
 name = "valuable"
@@ -5642,6 +5653,7 @@ dependencies = [
 [[package]]
 name = "wasmer"
 version = "4.2.8"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "bytes",
  "cfg-if 1.0.0",
@@ -5669,6 +5681,7 @@ dependencies = [
 [[package]]
 name = "wasmer-compiler"
 version = "4.2.8"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "backtrace",
  "bytes",
@@ -5694,6 +5707,7 @@ dependencies = [
 [[package]]
 name = "wasmer-compiler-cranelift"
 version = "4.2.8"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -5711,6 +5725,7 @@ dependencies = [
 [[package]]
 name = "wasmer-compiler-singlepass"
 version = "4.2.8"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -5728,6 +5743,7 @@ dependencies = [
 [[package]]
 name = "wasmer-derive"
 version = "4.2.8"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -5738,6 +5754,7 @@ dependencies = [
 [[package]]
 name = "wasmer-types"
 version = "4.2.8"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "bytecheck",
  "enum-iterator 0.7.0",
@@ -5752,6 +5769,7 @@ dependencies = [
 [[package]]
 name = "wasmer-vm"
 version = "4.2.8"
+source = "git+https://github.com/bernard-wagner/nitro.git?branch=dev#a536319c61bea95d7c713dc7c0e95611f867a857"
 dependencies = [
  "backtrace",
  "cc",

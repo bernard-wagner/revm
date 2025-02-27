@@ -26,9 +26,13 @@ all = "warn"
 revm-interpreter = { path = "../interpreter", version = "15.1.0", default-features = false }
 revm-precompile = { path = "../precompile", version = "16.0.0", default-features = false }
 
-arbutil = { path = "../../../nitro/arbitrator/arbutil" }
-stylus = { path = "../../../nitro/arbitrator/stylus" }
-wasmer-types = { path = "../../../nitro/arbitrator/tools/wasmer/lib/types" }
+# arbutil = { path = "../../../nitro/arbitrator/arbutil", default-features = false }
+# stylus = { path = "../../../nitro/arbitrator/stylus", default-features = false }
+# wasmer-types = { path = "../../../nitro/arbitrator/tools/wasmer/lib/types",  default-features = false }
+
+stylus = { git = "https://github.com/bernard-wagner/nitro.git", branch = "dev", package = "stylus" }
+arbutil = { git = "https://github.com/bernard-wagner/nitro.git", branch = "dev", package = "arbutil" }
+wasmer-types = { git = "https://github.com/bernard-wagner/nitro.git", branch = "dev", package = "wasmer-types" }
 
 # misc
 auto_impl = { version = "1.2", default-features = false }

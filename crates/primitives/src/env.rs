@@ -336,7 +336,7 @@ pub struct CfgEnv {
     #[cfg(feature = "optional_beneficiary_reward")]
     pub disable_beneficiary_reward: bool,
 
-    pub arbos_env: Option<ArbOsCfg>,
+    pub arbos_config: Option<ArbOsCfg>,
 }
 
 impl CfgEnv {
@@ -456,7 +456,7 @@ impl Default for CfgEnv {
             disable_base_fee: false,
             #[cfg(feature = "optional_beneficiary_reward")]
             disable_beneficiary_reward: false,
-            arbos_env: None,
+            arbos_config: None,
         }
     }
 }

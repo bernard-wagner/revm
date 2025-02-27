@@ -66,7 +66,7 @@ impl StylusInterpreter {
     ) -> revm_interpreter::InterpreterAction {
         let evm_data = self.build_evm_data(context);
 
-        let arbos_cfg = context.env().cfg.arbos_env.clone().unwrap_or_default();
+        let arbos_cfg = context.env().cfg.arbos_config.clone().unwrap_or_default();
         let compile_config = CompileConfig::version(arbos_cfg.stylus_version, arbos_cfg.debug_mode);
         let stylus_config = StylusConfig::new(
             arbos_cfg.stylus_version,
@@ -101,11 +101,11 @@ impl StylusInterpreter {
 
         let bytecode = bytecode.strip_prefix(&[0xEF, 0xF0, 0x00, 0x00]).unwrap();
 
-        let mut instance = NativeInstance::from_bytecode(
+        let mut instance = NativeInstance::from_bytes(
             bytecode,
             evm_api,
             evm_data,
-            compile_config,
+            &compile_config,
             stylus_config,
             wasmer_types::compilation::target::Target::default(),
         )
@@ -173,7 +173,7 @@ impl StylusInterpreter {
             arbos_version: context
                 .env()
                 .cfg
-                .arbos_env
+                .arbos_config
                 .clone()
                 .unwrap_or_default()
                 .arbos_version as u64,

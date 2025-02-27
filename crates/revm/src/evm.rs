@@ -126,7 +126,6 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                 InterpreterAction::Return { result } => {
                     // free memory context.
                     shared_memory.free_context();
-
                     // pop last frame from the stack and consume it to create FrameResult.
                     let returned_frame = call_stack
                         .pop()
